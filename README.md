@@ -189,57 +189,29 @@ npm run db:push
 
 ## Usage
 
-### First Time Setup
+For detailed usage instructions, please refer to:
+- **[Admin Guide](./ADMIN_GUIDE.md)** - Complete guide for warung owners/admins
+- **[Employee Guide](./EMPLOYEE_GUIDE.md)** - Complete guide for cashiers/employees
 
-1. Open the app at `http://localhost:5173`
-2. The app will automatically:
-   - Initialize a unique device ID
-   - Create initial settings
-   - Seed sample data (menu items and inventory)
+### Quick Start
 
-### Creating an Order
+1. **Admin Setup:**
+   - Login at `/admin/login`
+   - Add employees/devices via Devices page
+   - Configure menu items with ingredients
+   - Add inventory items
 
-1. Navigate to "Pesanan" (Orders)
-2. Click "Buat Pesanan" (Create Order)
-3. Select menu items from the list
-4. Optionally add a table number
-5. Review the order summary
-6. Click "Buat Pesanan" to create
+2. **Employee Usage:**
+   - Login at `/login` with credentials from admin
+   - Create orders via Orders page
+   - Monitor stock status
+   - Generate daily reports at end of shift
 
-### Managing Inventory
-
-1. Navigate to "Inventory"
-2. View current stock levels
-3. Filter by category (Bahan Baku, Kemasan, Lainnya)
-4. See low-stock alerts
-5. Stock is automatically deducted when orders are completed
-
-### Viewing Reports
-
-1. Navigate to "Laporan" (Reports)
-2. View today's summary (revenue, profit, orders)
-3. See 7-day trend charts
-4. Check best-selling items
-5. Click "Refresh Data" to regenerate reports
-
-## Offline Functionality
-
-The app works 100% offline:
-
-- All data is stored locally in IndexedDB
-- Changes are queued for sync
-- When online, sync happens automatically
-- Offline indicator shows connection status
-- Service worker caches all assets
-
-## Data Sync
-
-When the device comes online:
-
-- Pending changes are automatically synced to the server
-- Failed syncs are retried up to 3 times
-- Sync status is visible in the UI
-- Manual sync can be triggered
+3. **Offline-First:**
+   - All data stored locally in IndexedDB
+   - Works 100% offline
+   - Auto-syncs every 5 minutes when online
+   - Changes queued for sync when offline
 
 ## Development
 
@@ -316,39 +288,12 @@ docker-compose exec api npm run db:push
 - `GET /api/data/latest` - Pull latest data
 - `GET /api/data/sync-status` - Check sync status
 
-## Sample Data
-
-The app comes with sample data for testing:
-
-**Inventory Items:**
-- Beras (50 kg)
-- Minyak Goreng (20 L)
-- Ayam (15 kg)
-- Telur (100 pcs)
-- Teh Celup (200 pcs)
-- Gula Pasir (10 kg)
-
-**Menu Items:**
-- Nasi Goreng (Rp 15,000)
-- Ayam Goreng (Rp 20,000)
-- Nasi Putih (Rp 5,000)
-- Teh Manis (Rp 3,000)
-- Es Teh Manis (Rp 4,000)
-
 ## Browser Support
 
 - Chrome/Edge 90+
 - Firefox 88+
 - Safari 14+
 - Mobile browsers (Android, iOS)
-
-## PWA Installation
-
-On mobile devices:
-1. Open the app in browser
-2. Tap "Add to Home Screen"
-3. The app installs as a standalone app
-4. Use like a native app
 
 ## Troubleshooting
 
@@ -363,9 +308,10 @@ On mobile devices:
 - Ensure port 3001 is available
 
 ### Sync not working
-- Check API_URL in `frontend/.env`
+- Check API_URL in `frontend/.env` (should be `http://localhost:3001`)
 - Verify backend is running
 - Check browser console for errors
+- See troubleshooting sections in [Admin Guide](./ADMIN_GUIDE.md) and [Employee Guide](./EMPLOYEE_GUIDE.md)
 
 ## Contributing
 

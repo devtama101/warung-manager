@@ -44,6 +44,8 @@ coverage/
 .nyc_output/
 
 # Misc
+set-anthropic-env.sh
+1753683755292-30b3431f487b4cc1863e57a81d78e289.sh
 .cache/
 temp/
 tmp/
