@@ -1,6 +1,7 @@
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Users, TrendingUp, Settings, X } from 'lucide-react';
+import { LayoutDashboard, Smartphone, TrendingUp, Settings, X, BarChart3, ChefHat, Package, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface AdminSidebarProps {
   isOpen: boolean;
@@ -8,14 +9,19 @@ interface AdminSidebarProps {
 }
 
 const menuItems = [
-  { icon: LayoutDashboard, label: 'Dashboard', path: '/admin' },
-  { icon: Users, label: 'Users', path: '/admin/users' },
-  { icon: TrendingUp, label: 'Revenue', path: '/admin/revenue' },
-  { icon: Settings, label: 'Settings', path: '/admin/settings' },
+  { icon: LayoutDashboard, label: 'Beranda', path: '/admin' },
+  { icon: Smartphone, label: 'Perangkat', path: '/admin/devices' },
+  { icon: ChefHat, label: 'Menu', path: '/admin/menu' },
+  { icon: Package, label: 'Bahan Baku', path: '/admin/inventory' },
+  { icon: TrendingUp, label: 'Pendapatan', path: '/admin/revenue' },
+  { icon: BarChart3, label: 'Laporan', path: '/admin/reports' },
+  { icon: RefreshCw, label: 'Sinkronisasi', path: '/admin/sync' },
+  { icon: Settings, label: 'Pengaturan', path: '/admin/settings' },
 ];
 
 export function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
   const location = useLocation();
+  const { user } = useAuth();
 
   return (
     <>
@@ -44,8 +50,8 @@ export function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
 
           {/* Logo/brand for desktop */}
           <div className="hidden lg:block p-6 border-b border-gray-800">
-            <h1 className="text-xl font-bold text-blue-400">Admin Panel</h1>
-            <p className="text-sm text-gray-400 mt-1">Warung POS</p>
+            <h1 className="text-xl font-bold text-blue-400">{user?.warungNama || 'Warung POS'}</h1>
+            <p className="text-sm text-gray-400 mt-1">Admin • {user?.email || ''}</p>
           </div>
 
           <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
@@ -77,7 +83,7 @@ export function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
               to="/"
               className="flex items-center justify-center px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors"
             >
-              ← Back to User Dashboard
+              ← Kembali ke Dashboard Kasir
             </Link>
           </div>
         </div>

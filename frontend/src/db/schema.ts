@@ -29,8 +29,10 @@ export interface Menu {
   id?: number;
   serverId?: string;
   nama: string;
+  deskripsi?: string;
   kategori: 'makanan' | 'minuman' | 'snack';
   harga: number;
+  hargaModal: number;
   tersedia: boolean;
   gambar?: string; // Base64 or URL
   ingredients: MenuIngredient[]; // Link to inventory

@@ -2,6 +2,7 @@ import { pgTable, serial, text, integer, timestamp, boolean, json, decimal, pgEn
 
 // ============= ENUMS =============
 
+export const roleEnum = pgEnum('role', ['admin', 'employee']);
 export const statusEnum = pgEnum('status', ['pending', 'completed', 'cancelled']);
 export const kategoriMenuEnum = pgEnum('kategori_menu', ['makanan', 'minuman', 'snack']);
 export const kategoriInventoryEnum = pgEnum('kategori_inventory', ['bahan_baku', 'kemasan', 'lainnya']);
@@ -27,16 +28,34 @@ export type MenuIngredient = {
 
 // ============= TABLES =============
 
+// Admin/Owner table - pemilik warung
 export const users = pgTable('users', {
   id: serial('id').primaryKey(),
-  username: text('username').notNull().unique(),
+  email: text('email').notNull().unique(),
   password: text('password').notNull(), // Hashed
+  role: roleEnum('role').notNull().default('admin'),
   warungNama: text('warung_nama').notNull(),
   warungAlamat: text('warung_alamat'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull()
 });
 
+// Employee table - karyawan per-device
+export const employees = pgTable('employees', {
+  id: serial('id').primaryKey(),
+  userId: integer('user_id').references(() => users.id).notNull(), // Owner warung
+  email: text('email').notNull().unique(),
+  password: text('password').notNull(), // Hashed
+  name: text('name').notNull(), // Nama lengkap karyawan
+  deviceId: text('device_id').notNull().unique(), // 1 employee = 1 device
+  deviceName: text('device_name').notNull(),
+  isActive: boolean('is_active').default(true).notNull(),
+  lastSeenAt: timestamp('last_seen_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull()
+});
+
+// Devices table (legacy - for admin/owner devices tracking)
 export const devices = pgTable('devices', {
   id: serial('id').primaryKey(),
   userId: integer('user_id').references(() => users.id).notNull(),

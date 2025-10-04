@@ -6,7 +6,16 @@ interface ProtectedRouteProps {
 }
 
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, loading } = useAuth();
+
+  // Wait for auth check to complete
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <p className="text-gray-600">Memuat...</p>
+      </div>
+    );
+  }
 
   if (!isAuthenticated) {
     // Redirect to login if not authenticated

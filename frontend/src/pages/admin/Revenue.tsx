@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react';
-import { TrendingUp, DollarSign, Users, Calendar, ChevronDown } from 'lucide-react';
+import { TrendingUp, DollarSign, Users, RefreshCw } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, PieChart, Pie, Cell } from 'recharts';
 import { formatCurrency, formatNumber } from '@/lib/utils';
-import { getAllMenu } from '@/lib/menu';
 import { db } from '@/db/schema';
 import { startOfMonth, endOfMonth, startOfDay, endOfDay, subMonths, format } from 'date-fns';
+import axios from 'axios';
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3002';
 
 interface RevenueByUser {
   userId: string;
@@ -31,6 +33,7 @@ interface MonthlyRevenue {
 
 export function Revenue() {
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [timeRange, setTimeRange] = useState<'today' | 'month' | '3months' | 'year'>('month');
 
   // Stats
@@ -47,6 +50,12 @@ export function Revenue() {
   useEffect(() => {
     loadRevenueData();
   }, [timeRange]);
+
+  const refreshDataFromBackend = async () => {
+    setRefreshing(true);
+    await loadRevenueData();
+    setRefreshing(false);
+  };
 
   const getDateRange = () => {
     const now = new Date();
@@ -67,14 +76,62 @@ export function Revenue() {
   const loadRevenueData = async () => {
     setLoading(true);
     try {
+      const token = localStorage.getItem('adminAuthToken');
+      if (token) {
+        // Try to load from backend first
+        const response = await axios.get(`${API_BASE_URL}/api/admin/revenue`, {
+          params: { timeRange },
+          headers: { Authorization: `Bearer ${token}` }
+        });
+
+        if (response.data.success) {
+          const backendData = response.data.data;
+
+          // Update stats with backend data
+          setTotalRevenue(backendData.totalRevenue);
+          setTotalOrders(backendData.totalOrders);
+          setAvgOrderValue(backendData.avgOrderValue);
+          setTotalUsers(backendData.activeUsers);
+
+          // Transform backend data to match frontend format
+          const userRevenueFormatted = backendData.revenueByUser.map((user: any) => ({
+            userId: user.userId.toString(),
+            userName: user.userName,
+            totalRevenue: user.totalRevenue,
+            totalOrders: user.totalOrders,
+            avgOrderValue: user.avgOrderValue
+          }));
+
+          const menuRevenueFormatted = backendData.revenueByMenu.map((menu: any) => ({
+            menuNama: menu.menuNama,
+            totalRevenue: menu.totalRevenue,
+            totalQty: menu.totalQty,
+            avgPrice: menu.avgPrice
+          }));
+
+          setRevenueByUser(userRevenueFormatted);
+          setRevenueByMenu(menuRevenueFormatted);
+          setMonthlyRevenue(backendData.monthlyRevenue);
+
+          console.log('Revenue data loaded from backend');
+          return;
+        }
+      }
+    } catch (error) {
+      console.error('Backend load failed, using local data:', error);
+    }
+
+    try {
+      // Fallback to local data
       const { start, end } = getDateRange();
 
-      // Get all completed orders in date range
-      const orders = await db.pesanan
-        .where('tanggal')
-        .between(start, end, true, true)
-        .and(p => p.status === 'completed')
-        .toArray();
+      // Get all orders and filter manually to avoid key range issues
+      const allOrders = await db.pesanan.toArray();
+      const orders = allOrders.filter(order =>
+        order.tanggal >= start &&
+        order.tanggal <= end &&
+        order.status === 'completed'
+      );
 
       // Calculate total stats
       const revenue = orders.reduce((sum, o) => sum + o.total, 0);
@@ -165,39 +222,51 @@ export function Revenue() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Revenue Analytics</h1>
-          <p className="text-gray-600 mt-1">Comprehensive revenue insights across all users</p>
+          <h1 className="text-3xl font-bold text-gray-900">Analisis Pendapatan</h1>
+          <p className="text-gray-600 mt-1">Laporan pendapatan dan penjualan warung</p>
         </div>
 
-        {/* Time Range Selector */}
-        <div className="flex space-x-2">
+        <div className="flex items-center space-x-2">
+          {/* Refresh Button */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={refreshDataFromBackend}
+            disabled={refreshing}
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+            {refreshing ? 'Memuat...' : 'Refresh'}
+          </Button>
+
+          {/* Time Range Selector */}
+          <div className="flex space-x-2">
           <Button
             variant={timeRange === 'today' ? 'default' : 'outline'}
             onClick={() => setTimeRange('today')}
             size="sm"
           >
-            Today
+            Hari Ini
           </Button>
           <Button
             variant={timeRange === 'month' ? 'default' : 'outline'}
             onClick={() => setTimeRange('month')}
             size="sm"
           >
-            This Month
+            Bulan Ini
           </Button>
           <Button
             variant={timeRange === '3months' ? 'default' : 'outline'}
             onClick={() => setTimeRange('3months')}
             size="sm"
           >
-            3 Months
+            3 Bulan
           </Button>
           <Button
             variant={timeRange === 'year' ? 'default' : 'outline'}
             onClick={() => setTimeRange('year')}
             size="sm"
           >
-            Year
+            Tahun Ini
           </Button>
         </div>
       </div>
@@ -209,52 +278,41 @@ export function Revenue() {
       ) : (
         <>
           {/* Key Metrics */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
+                <CardTitle className="text-sm font-medium">Total Pendapatan</CardTitle>
                 <DollarSign className="h-4 w-4 text-gray-600" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{formatCurrency(totalRevenue)}</div>
                 <p className="text-xs text-gray-600 mt-1">
-                  {timeRange === 'today' ? 'today' : timeRange === 'month' ? 'this month' : `last ${timeRange === '3months' ? '3 months' : 'year'}`}
+                  {timeRange === 'today' ? 'hari ini' : timeRange === 'month' ? 'bulan ini' : `${timeRange === '3months' ? '3 bulan terakhir' : 'tahun ini'}`}
                 </p>
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Orders</CardTitle>
+                <CardTitle className="text-sm font-medium">Total Pesanan</CardTitle>
                 <TrendingUp className="h-4 w-4 text-gray-600" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{formatNumber(totalOrders)}</div>
-                <p className="text-xs text-gray-600 mt-1">completed orders</p>
+                <p className="text-xs text-gray-600 mt-1">pesanan selesai</p>
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Avg Order Value</CardTitle>
+                <CardTitle className="text-sm font-medium">Rata-rata Pesanan</CardTitle>
                 <DollarSign className="h-4 w-4 text-green-600" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-green-600">
                   {formatCurrency(avgOrderValue)}
                 </div>
-                <p className="text-xs text-gray-600 mt-1">per order</p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Active Users</CardTitle>
-                <Users className="h-4 w-4 text-blue-600" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-blue-600">{totalUsers}</div>
-                <p className="text-xs text-gray-600 mt-1">unique devices</p>
+                <p className="text-xs text-gray-600 mt-1">per pesanan</p>
               </CardContent>
             </Card>
           </div>
@@ -263,7 +321,7 @@ export function Revenue() {
           {(timeRange === '3months' || timeRange === 'year') && (
             <Card>
               <CardHeader>
-                <CardTitle>Revenue Trend</CardTitle>
+                <CardTitle>Trend Pendapatan</CardTitle>
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={300}>
@@ -278,7 +336,7 @@ export function Revenue() {
                       dataKey="revenue"
                       stroke="#3b82f6"
                       strokeWidth={2}
-                      name="Revenue"
+                      name="Pendapatan"
                     />
                   </LineChart>
                 </ResponsiveContainer>
@@ -286,101 +344,55 @@ export function Revenue() {
             </Card>
           )}
 
-          {/* Revenue by User and Menu */}
-          <div className="grid lg:grid-cols-2 gap-6">
-            {/* Revenue by User */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Top Users by Revenue</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {revenueByUser.length === 0 ? (
-                  <p className="text-center text-gray-600 py-4">No data available</p>
-                ) : (
-                  <div className="space-y-3">
-                    {revenueByUser.map((user, index) => (
-                      <div
-                        key={user.userId}
-                        className="flex items-center justify-between py-3 border-b last:border-b-0"
-                      >
-                        <div className="flex items-center space-x-3">
-                          <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold">
-                            {index + 1}
-                          </div>
-                          <div>
-                            <p className="font-medium text-gray-900">{user.userName}</p>
-                            <p className="text-sm text-gray-600">
-                              {formatNumber(user.totalOrders)} orders • {formatCurrency(user.avgOrderValue)}/order
-                            </p>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-bold text-blue-600">
-                            {formatCurrency(user.totalRevenue)}
-                          </p>
-                          <p className="text-xs text-gray-600">
-                            {totalRevenue > 0
-                              ? ((user.totalRevenue / totalRevenue) * 100).toFixed(1)
-                              : '0'}%
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Revenue by Menu - Pie Chart */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Revenue by Menu Item</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {revenueByMenu.length === 0 ? (
-                  <p className="text-center text-gray-600 py-4">No data available</p>
-                ) : (
-                  <ResponsiveContainer width="100%" height={300}>
-                    <PieChart>
-                      <Pie
-                        data={revenueByMenu.slice(0, 8)}
-                        dataKey="totalRevenue"
-                        nameKey="menuNama"
-                        cx="50%"
-                        cy="50%"
-                        outerRadius={100}
-                        label={(entry) => `${entry.menuNama} (${((entry.totalRevenue / totalRevenue) * 100).toFixed(0)}%)`}
-                      >
-                        {revenueByMenu.slice(0, 8).map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                        ))}
-                      </Pie>
-                      <Tooltip formatter={(value: number) => formatCurrency(value)} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                )}
-              </CardContent>
-            </Card>
-          </div>
+          {/* Revenue by Menu */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Pendapatan per Menu</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {revenueByMenu.length === 0 ? (
+                <p className="text-center text-gray-600 py-4">Tidak ada data</p>
+              ) : (
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={revenueByMenu.slice(0, 8)}
+                      dataKey="totalRevenue"
+                      nameKey="menuNama"
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={100}
+                      label={(entry) => `${entry.menuNama} (${((entry.totalRevenue / totalRevenue) * 100).toFixed(0)}%)`}
+                    >
+                      {revenueByMenu.slice(0, 8).map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                  </PieChart>
+                </ResponsiveContainer>
+              )}
+            </CardContent>
+          </Card>
 
           {/* Detailed Menu Revenue Table */}
           <Card>
             <CardHeader>
-              <CardTitle>Detailed Menu Revenue</CardTitle>
+              <CardTitle>Detail Pendapatan Menu</CardTitle>
             </CardHeader>
             <CardContent>
               {revenueByMenu.length === 0 ? (
-                <p className="text-center text-gray-600 py-4">No data available</p>
+                <p className="text-center text-gray-600 py-4">Tidak ada data</p>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full">
                     <thead className="border-b">
                       <tr>
-                        <th className="text-left py-3 px-4 font-medium text-gray-600">Menu Item</th>
-                        <th className="text-right py-3 px-4 font-medium text-gray-600">Quantity</th>
-                        <th className="text-right py-3 px-4 font-medium text-gray-600">Avg Price</th>
-                        <th className="text-right py-3 px-4 font-medium text-gray-600">Total Revenue</th>
-                        <th className="text-right py-3 px-4 font-medium text-gray-600">% Share</th>
+                        <th className="text-left py-3 px-4 font-medium text-gray-600">Menu</th>
+                        <th className="text-right py-3 px-4 font-medium text-gray-600">Jumlah Terjual</th>
+                        <th className="text-right py-3 px-4 font-medium text-gray-600">Harga Rata-rata</th>
+                        <th className="text-right py-3 px-4 font-medium text-gray-600">Total Pendapatan</th>
+                        <th className="text-right py-3 px-4 font-medium text-gray-600">% Kontribusi</th>
                       </tr>
                     </thead>
                     <tbody>

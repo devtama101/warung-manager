@@ -3,8 +3,8 @@
 # set-anthropic-env.sh
 # Sets Anthropic API environment variables for current shell session
 
-$Env:ANTHROPIC_BASE_URL="https://api.z.ai/api/anthropic"
-$Env:ANTHROPIC_AUTH_TOKEN=0054a7987523439897fd329d9798926e.fYVfNTrqUvzr4J9w
+export ANTHROPIC_BASE_URL=https://api.z.ai/api/anthropic
+export ANTHROPIC_AUTH_TOKEN=0248a253fafe41988248a8a155954e45.Owr0qIWq61SDq724
 
 echo "✅ Environment variables set:"
 echo "   ANTHROPIC_BASE_URL = $ANTHROPIC_BASE_URL"

@@ -101,7 +101,7 @@ export function Orders() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'pending':
-        return <Badge variant="warning"><Clock className="mr-1 h-3 w-3" />Pending</Badge>;
+        return <Badge variant="warning"><Clock className="mr-1 h-3 w-3" />Menunggu</Badge>;
       case 'completed':
         return <Badge variant="success"><Check className="mr-1 h-3 w-3" />Selesai</Badge>;
       case 'cancelled':
@@ -130,7 +130,7 @@ export function Orders() {
       <div className="flex space-x-2 border-b">
         {[
           { key: 'all', label: 'Semua' },
-          { key: 'pending', label: 'Pending' },
+          { key: 'pending', label: 'Menunggu' },
           { key: 'completed', label: 'Selesai' },
           { key: 'cancelled', label: 'Batal' }
         ].map(tab => (

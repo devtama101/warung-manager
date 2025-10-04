@@ -1,57 +1,99 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import axios from 'axios';
+import { getDeviceId } from '@/db/schema';
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3002';
 
 interface AuthContextType {
   isAuthenticated: boolean;
-  user: { email: string; name: string } | null;
+  user: { email: string; name: string; warungNama?: string } | null;
+  token: string | null;
   login: (email: string, password: string) => Promise<boolean>;
   logout: () => void;
+  loading: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [user, setUser] = useState<{ email: string; name: string } | null>(null);
+  const [user, setUser] = useState<{ email: string; name: string; warungNama?: string } | null>(null);
+  const [token, setToken] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   // Check if user is already logged in on mount
   useEffect(() => {
-    const savedAuth = localStorage.getItem('adminAuth');
-    if (savedAuth) {
-      const authData = JSON.parse(savedAuth);
-      setIsAuthenticated(true);
-      setUser(authData.user);
-    }
+    const checkAuth = () => {
+      const savedToken = localStorage.getItem('adminAuthToken');
+      const savedUser = localStorage.getItem('adminUser');
+
+      if (savedToken && savedUser) {
+        try {
+          setToken(savedToken);
+          setUser(JSON.parse(savedUser));
+          setIsAuthenticated(true);
+        } catch (error) {
+          console.error('Failed to restore session:', error);
+          localStorage.removeItem('adminAuthToken');
+          localStorage.removeItem('adminUser');
+        }
+      }
+
+      setLoading(false);
+    };
+
+    checkAuth();
   }, []);
 
   const login = async (email: string, password: string): Promise<boolean> => {
-    // Simple mock authentication
-    // In production, this would call your API
-    if (email === 'admin@warungpos.com' && password === 'admin123') {
-      const userData = {
-        email: 'admin@warungpos.com',
-        name: 'Admin User'
-      };
+    try {
+      const deviceId = getDeviceId();
+      const deviceName = `Admin-${deviceId.slice(0, 8)}`;
 
-      setIsAuthenticated(true);
-      setUser(userData);
+      const response = await axios.post(`${API_URL}/api/auth/login`, {
+        email,
+        password,
+        deviceId,
+        deviceName
+      });
 
-      // Save to localStorage
-      localStorage.setItem('adminAuth', JSON.stringify({ user: userData }));
+      if (response.data.success && response.data.data.role === 'admin') {
+        const { user, token } = response.data.data;
 
-      return true;
+        const userData = {
+          email: user.email,
+          name: user.warungNama || 'Admin',
+          warungNama: user.warungNama
+        };
+
+        setUser(userData);
+        setToken(token);
+        setIsAuthenticated(true);
+
+        // Save to localStorage
+        localStorage.setItem('adminAuthToken', token);
+        localStorage.setItem('adminUser', JSON.stringify(userData));
+
+        return true;
+      }
+
+      return false;
+    } catch (error) {
+      console.error('Login error:', error);
+      return false;
     }
-
-    return false;
   };
 
   const logout = () => {
     setIsAuthenticated(false);
     setUser(null);
-    localStorage.removeItem('adminAuth');
+    setToken(null);
+    localStorage.removeItem('adminAuthToken');
+    localStorage.removeItem('adminUser');
   };
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, user, login, logout }}>
+    <AuthContext.Provider value={{ isAuthenticated, user, token, login, logout, loading }}>
       {children}
     </AuthContext.Provider>
   );

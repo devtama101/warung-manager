@@ -12,6 +12,7 @@ export function AdminDashboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    document.title = 'Dashboard Admin - Warung POS';
     loadData();
   }, []);
 
@@ -39,7 +40,7 @@ export function AdminDashboard() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <p className="text-gray-600">Loading...</p>
+        <p className="text-gray-600">Memuat...</p>
       </div>
     );
   }
@@ -50,8 +51,8 @@ export function AdminDashboard() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
-          <p className="text-gray-600 mt-1">Overview of all users and revenue</p>
+          <h1 className="text-3xl font-bold text-gray-900">Dashboard Admin</h1>
+          <p className="text-gray-600 mt-1">Ringkasan semua pengguna dan pendapatan</p>
         </div>
       </div>
 
@@ -59,26 +60,26 @@ export function AdminDashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Users</CardTitle>
+            <CardTitle className="text-sm font-medium">Total Pengguna</CardTitle>
             <Users className="h-4 w-4 text-blue-600" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.totalUsers}</div>
             <p className="text-xs text-green-600 mt-1">
-              +{stats.newUsersThisMonth} this month
+              +{stats.newUsersThisMonth} bulan ini
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Users</CardTitle>
+            <CardTitle className="text-sm font-medium">Pengguna Aktif</CardTitle>
             <UserCheck className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.activeUsers}</div>
             <p className="text-xs text-gray-600 mt-1">
-              {((stats.activeUsers / stats.totalUsers) * 100).toFixed(1)}% of total
+              {((stats.activeUsers / stats.totalUsers) * 100).toFixed(1)}% dari total
             </p>
           </CardContent>
         </Card>
@@ -90,18 +91,18 @@ export function AdminDashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{formatCurrency(stats.monthlyRecurringRevenue)}</div>
-            <p className="text-xs text-gray-600 mt-1">Monthly Recurring Revenue</p>
+            <p className="text-xs text-gray-600 mt-1">Pendapatan Berulang Bulanan</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
+            <CardTitle className="text-sm font-medium">Total Pendapatan</CardTitle>
             <DollarSign className="h-4 w-4 text-yellow-600" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{formatCurrency(stats.totalRevenue)}</div>
-            <p className="text-xs text-gray-600 mt-1">All time</p>
+            <p className="text-xs text-gray-600 mt-1">Sepanjang waktu</p>
           </CardContent>
         </Card>
       </div>
@@ -111,7 +112,7 @@ export function AdminDashboard() {
         {/* Revenue Chart */}
         <Card>
           <CardHeader>
-            <CardTitle>Revenue Trend (Last 6 Months)</CardTitle>
+            <CardTitle>Tren Pendapatan (6 Bulan Terakhir)</CardTitle>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
@@ -128,7 +129,7 @@ export function AdminDashboard() {
                   dataKey="revenue"
                   stroke="#3b82f6"
                   strokeWidth={2}
-                  name="Revenue"
+                  name="Pendapatan"
                 />
               </LineChart>
             </ResponsiveContainer>
@@ -138,7 +139,7 @@ export function AdminDashboard() {
         {/* User Growth Chart */}
         <Card>
           <CardHeader>
-            <CardTitle>User Growth vs Churn</CardTitle>
+            <CardTitle>Pertumbuhan vs Kehilangan Pengguna</CardTitle>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
@@ -148,8 +149,8 @@ export function AdminDashboard() {
                 <YAxis />
                 <Tooltip />
                 <Legend />
-                <Bar dataKey="newUsers" fill="#10b981" name="New Users" />
-                <Bar dataKey="churnedUsers" fill="#ef4444" name="Churned Users" />
+                <Bar dataKey="newUsers" fill="#10b981" name="Pengguna Baru" />
+                <Bar dataKey="churnedUsers" fill="#ef4444" name="Pengguna Keluar" />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
@@ -161,7 +162,7 @@ export function AdminDashboard() {
         {/* Plan Distribution Pie Chart */}
         <Card>
           <CardHeader>
-            <CardTitle>Plan Distribution</CardTitle>
+            <CardTitle>Distribusi Paket</CardTitle>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={250}>
@@ -189,51 +190,51 @@ export function AdminDashboard() {
         {/* Additional Stats */}
         <Card className="lg:col-span-2">
           <CardHeader>
-            <CardTitle>Key Metrics</CardTitle>
+            <CardTitle>Metrik Utama</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 gap-6">
               <div>
                 <div className="flex items-center space-x-2 mb-2">
                   <UserCheck className="h-5 w-5 text-green-600" />
-                  <span className="text-sm font-medium text-gray-600">Active Users</span>
+                  <span className="text-sm font-medium text-gray-600">Pengguna Aktif</span>
                 </div>
                 <p className="text-3xl font-bold">{stats.activeUsers}</p>
                 <p className="text-sm text-gray-500 mt-1">
-                  {((stats.activeUsers / stats.totalUsers) * 100).toFixed(1)}% active rate
+                  {((stats.activeUsers / stats.totalUsers) * 100).toFixed(1)}% tingkat aktif
                 </p>
               </div>
 
               <div>
                 <div className="flex items-center space-x-2 mb-2">
                   <Users className="h-5 w-5 text-blue-600" />
-                  <span className="text-sm font-medium text-gray-600">Trial Users</span>
+                  <span className="text-sm font-medium text-gray-600">Pengguna Trial</span>
                 </div>
                 <p className="text-3xl font-bold">{stats.trialUsers}</p>
                 <p className="text-sm text-gray-500 mt-1">
-                  Potential conversions
+                  Potensi konversi
                 </p>
               </div>
 
               <div>
                 <div className="flex items-center space-x-2 mb-2">
                   <UserX className="h-5 w-5 text-red-600" />
-                  <span className="text-sm font-medium text-gray-600">Churn Rate</span>
+                  <span className="text-sm font-medium text-gray-600">Tingkat Keluar</span>
                 </div>
                 <p className="text-3xl font-bold">{stats.churnRate}%</p>
                 <p className="text-sm text-gray-500 mt-1">
-                  Monthly average
+                  Rata-rata bulanan
                 </p>
               </div>
 
               <div>
                 <div className="flex items-center space-x-2 mb-2">
                   <TrendingUp className="h-5 w-5 text-purple-600" />
-                  <span className="text-sm font-medium text-gray-600">Growth</span>
+                  <span className="text-sm font-medium text-gray-600">Pertumbuhan</span>
                 </div>
                 <p className="text-3xl font-bold">+{stats.newUsersThisMonth}</p>
                 <p className="text-sm text-gray-500 mt-1">
-                  New users this month
+                  Pengguna baru bulan ini
                 </p>
               </div>
             </div>

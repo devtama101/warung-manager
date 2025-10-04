@@ -1,6 +1,7 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Home, ShoppingCart, Package, BarChart3, X, ChefHat } from 'lucide-react';
+import { Home, ShoppingCart, Package, BarChart3, X, ClipboardList, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useWarungAuth } from '@/contexts/WarungAuthContext';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -8,15 +9,17 @@ interface SidebarProps {
 }
 
 const menuItems = [
-  { icon: Home, label: 'Dashboard', path: '/' },
+  { icon: Home, label: 'Beranda', path: '/' },
   { icon: ShoppingCart, label: 'Pesanan', path: '/orders' },
-  { icon: ChefHat, label: 'Menu', path: '/menu' },
-  { icon: Package, label: 'Inventory', path: '/inventory' },
+  { icon: ClipboardList, label: 'Status Stok', path: '/stock' },
+  { icon: Package, label: 'Bahan Baku', path: '/inventory' },
   { icon: BarChart3, label: 'Laporan', path: '/reports' },
+  { icon: RefreshCw, label: 'Sinkronisasi', path: '/debug-sync' },
 ];
 
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const location = useLocation();
+  const { user } = useWarungAuth();
 
   return (
     <>
@@ -45,7 +48,8 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
           {/* Hidden logo/brand for desktop */}
           <div className="hidden lg:block p-6 border-b">
-            <h1 className="text-xl font-bold text-blue-600">Warung POS</h1>
+            <h1 className="text-xl font-bold text-blue-600">{user?.warungNama || 'Warung POS'}</h1>
+            <p className="text-sm text-gray-600 mt-1">{user?.name || ''} • {user?.email || ''}</p>
           </div>
 
           <nav className="flex-1 p-4 space-y-1 overflow-y-auto">

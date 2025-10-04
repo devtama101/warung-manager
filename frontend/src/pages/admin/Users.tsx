@@ -1,19 +1,30 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, Eye, CheckCircle, XCircle, Clock, Award } from 'lucide-react';
+import { Search, Eye } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { getAllUsers } from '@/lib/admin/mockData';
-import { User } from '@/lib/admin/types';
-import { formatDateTime } from '@/lib/utils';
+import axios from 'axios';
+import { formatCurrency, formatDateTime } from '@/lib/utils';
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+
+interface WarungUser {
+  id: number;
+  username: string;
+  warungNama: string;
+  warungAlamat?: string;
+  createdAt: string;
+  deviceCount: number;
+  totalOrders: number;
+  totalRevenue: number;
+  lastOrderDate: string | null;
+}
 
 export function Users() {
-  const [users, setUsers] = useState<User[]>([]);
+  const [users, setUsers] = useState<WarungUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'trial' | 'expired'>('all');
 
   useEffect(() => {
     loadUsers();
@@ -22,8 +33,27 @@ export function Users() {
   const loadUsers = async () => {
     setLoading(true);
     try {
-      const data = await getAllUsers();
-      setUsers(data);
+      const token = localStorage.getItem('adminAuth');
+      if (!token) {
+        console.error('No admin token found');
+        return;
+      }
+
+      const authData = JSON.parse(token);
+      // For now, we'll use a mock token since admin auth is separate
+      // In production, you'd implement proper admin authentication
+
+      const response = await axios.get(`${API_URL}/api/admin/users`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('warungAuthToken')}`
+        }
+      });
+
+      if (response.data.success) {
+        setUsers(response.data.data);
+      }
+    } catch (error) {
+      console.error('Failed to load users:', error);
     } finally {
       setLoading(false);
     }
@@ -31,41 +61,10 @@ export function Users() {
 
   const filteredUsers = users.filter(user => {
     const matchesSearch = user.warungNama.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.ownerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchQuery.toLowerCase());
+      user.username.toLowerCase().includes(searchQuery.toLowerCase());
 
-    const matchesStatus = filterStatus === 'all' || user.subscriptionStatus === filterStatus;
-
-    return matchesSearch && matchesStatus;
+    return matchesSearch;
   });
-
-  const getStatusBadge = (status: User['subscriptionStatus']) => {
-    switch (status) {
-      case 'active':
-        return <Badge variant="success" className="flex items-center gap-1"><CheckCircle size={12} /> Active</Badge>;
-      case 'trial':
-        return <Badge variant="warning" className="flex items-center gap-1"><Clock size={12} /> Trial</Badge>;
-      case 'expired':
-        return <Badge variant="destructive" className="flex items-center gap-1"><XCircle size={12} /> Expired</Badge>;
-      case 'cancelled':
-        return <Badge variant="secondary" className="flex items-center gap-1"><XCircle size={12} /> Cancelled</Badge>;
-    }
-  };
-
-  const getPlanBadge = (plan: User['planType']) => {
-    const colors = {
-      free: 'bg-gray-500',
-      basic: 'bg-blue-500',
-      premium: 'bg-purple-500',
-      enterprise: 'bg-yellow-500'
-    };
-    return (
-      <Badge className={`${colors[plan]} text-white`}>
-        <Award size={12} className="mr-1" />
-        {plan.charAt(0).toUpperCase() + plan.slice(1)}
-      </Badge>
-    );
-  };
 
   return (
     <div className="space-y-6">
@@ -76,31 +75,16 @@ export function Users() {
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-          <Input
-            type="text"
-            placeholder="Search by warung name, owner, or email..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-
-        <div className="flex space-x-2">
-          {['all', 'active', 'trial', 'expired'].map((status) => (
-            <Button
-              key={status}
-              variant={filterStatus === status ? 'default' : 'outline'}
-              onClick={() => setFilterStatus(status as any)}
-              size="sm"
-            >
-              {status.charAt(0).toUpperCase() + status.slice(1)}
-            </Button>
-          ))}
-        </div>
+      {/* Search */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+        <Input
+          type="text"
+          placeholder="Search by warung name or username..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="pl-10"
+        />
       </div>
 
       {/* Users List */}
@@ -123,36 +107,32 @@ export function Users() {
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
                       <h3 className="text-lg font-semibold">{user.warungNama}</h3>
-                      {getStatusBadge(user.subscriptionStatus)}
-                      {getPlanBadge(user.planType)}
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4 text-sm">
                       <div>
-                        <p className="text-gray-600">Owner</p>
-                        <p className="font-medium">{user.ownerName}</p>
+                        <p className="text-gray-600">Username</p>
+                        <p className="font-medium">{user.username}</p>
                       </div>
                       <div>
-                        <p className="text-gray-600">Email</p>
-                        <p className="font-medium">{user.email}</p>
-                      </div>
-                      <div>
-                        <p className="text-gray-600">Phone</p>
-                        <p className="font-medium">{user.phone || '-'}</p>
-                      </div>
-                      <div>
-                        <p className="text-gray-600">Subscription Period</p>
-                        <p className="font-medium">
-                          {new Date(user.subscriptionStart).toLocaleDateString('id-ID')} - {new Date(user.subscriptionEnd).toLocaleDateString('id-ID')}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-gray-600">Last Active</p>
-                        <p className="font-medium">{formatDateTime(user.lastActive)}</p>
+                        <p className="text-gray-600">Address</p>
+                        <p className="font-medium">{user.warungAlamat || '-'}</p>
                       </div>
                       <div>
                         <p className="text-gray-600">Devices</p>
                         <p className="font-medium">{user.deviceCount} device(s)</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-600">Total Orders</p>
+                        <p className="font-medium">{user.totalOrders}</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-600">Total Revenue</p>
+                        <p className="font-medium text-green-600">{formatCurrency(user.totalRevenue)}</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-600">Registered</p>
+                        <p className="font-medium">{new Date(user.createdAt).toLocaleDateString('id-ID')}</p>
                       </div>
                     </div>
                   </div>
@@ -175,12 +155,10 @@ export function Users() {
         <CardContent className="p-4">
           <div className="flex items-center justify-between text-sm">
             <span className="text-gray-600">
-              Showing <span className="font-semibold">{filteredUsers.length}</span> of <span className="font-semibold">{users.length}</span> users
+              Showing <span className="font-semibold">{filteredUsers.length}</span> of <span className="font-semibold">{users.length}</span> warungs
             </span>
             <span className="text-gray-600">
-              Active: <span className="font-semibold text-green-600">{users.filter(u => u.subscriptionStatus === 'active').length}</span> |
-              Trial: <span className="font-semibold text-yellow-600 ml-2">{users.filter(u => u.subscriptionStatus === 'trial').length}</span> |
-              Expired: <span className="font-semibold text-red-600 ml-2">{users.filter(u => u.subscriptionStatus === 'expired').length}</span>
+              Total Revenue: <span className="font-semibold text-green-600">{formatCurrency(users.reduce((sum, u) => sum + u.totalRevenue, 0))}</span>
             </span>
           </div>
         </CardContent>

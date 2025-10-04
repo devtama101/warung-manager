@@ -2,6 +2,11 @@
 
 An offline-first Progressive Web App (PWA) designed for small Indonesian food vendors (warungs) to manage orders, track inventory, and generate daily reports—even without internet connectivity.
 
+## 📖 Documentation
+
+- **[Admin Guide](./ADMIN_GUIDE.md)** - Panduan lengkap untuk pemilik warung/admin
+- **[Employee Guide](./EMPLOYEE_GUIDE.md)** - Panduan lengkap untuk karyawan/kasir
+
 ## Features
 
 ### ✅ Completed Core Features
@@ -369,6 +374,47 @@ This is a private project for warung management. For contributions or issues, pl
 ## License
 
 ISC
+
+## Database Tables Overview
+
+### Employee/Kasir Tables (Local - IndexedDB)
+| Table | Purpose | Auto-Sync |
+|-------|---------|-----------|
+| `pesanan` | Customer orders with items and totals | ✅ Every 5 min |
+| `menu` | Available menu items with prices | ✅ Every 5 min |
+| `inventory` | Raw materials/ingredients stock | ✅ Every 5 min |
+| `dailyReport` | End-of-day sales summary | ✅ Every 5 min |
+| `syncQueue` | Pending sync operations | - |
+| `settings` | Local device settings | - |
+
+### Admin Tables (Server - PostgreSQL)
+| Table | Purpose | Managed By |
+|-------|---------|------------|
+| `users` | Warung owners/admins | Admin |
+| `employees` | Karyawan/kasir accounts | Admin |
+| `devices` | Registered devices/kasir | Admin |
+| `pesanan` | All synced orders | Auto-sync |
+| `menu` | All synced menu items | Auto-sync |
+| `inventory` | All synced inventory | Auto-sync |
+| `daily_reports` | All synced daily reports | Auto-sync |
+| `sync_logs` | Audit trail of all sync ops | Auto-sync |
+
+### Key Features
+
+**Inventory Auto-Deduction:**
+- When order status = "Completed" → Stock auto-deducts based on menu recipes
+- Requires menu items to have `ingredients` field populated
+- Calculates COGS for profit reporting
+
+**Daily Reports:**
+- Generated manually via "Buat Laporan Harian" button
+- Calculates: Total Sales, COGS, Profit, Best Seller
+- Auto-syncs to server for admin review
+
+**Data Sync:**
+- Employee devices sync every 5 minutes automatically
+- All data saved locally first (works offline)
+- Admin can review/delete synced data via Sync Management page
 
 ## Support
 

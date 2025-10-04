@@ -19,10 +19,13 @@ class SyncManager {
     recordId: number,
     data: any
   ): Promise<void> {
+    // Ensure recordId is a valid number
+    const validRecordId = typeof recordId === 'number' && !isNaN(recordId) ? recordId : Math.floor(Math.random() * 1000000);
+
     await db.syncQueue.add({
       action,
       table,
-      recordId,
+      recordId: validRecordId,
       data,
       timestamp: Date.now(),
       synced: false,
@@ -33,27 +36,43 @@ class SyncManager {
   // Process sync queue
   async processQueue(): Promise<void> {
     if (this.isSyncing) return;
-    if (!navigator.onLine) return;
+    if (!navigator.onLine) {
+      throw new Error('Tidak ada koneksi internet');
+    }
 
     this.isSyncing = true;
 
     try {
-      const queue = await db.syncQueue
-        .where('synced')
-        .equals(false)
-        .and(item => item.retryCount < this.maxRetries)
-        .toArray();
+      // Get all unsynced items and filter manually
+      const allQueue = await db.syncQueue.toArray();
+      const queue = allQueue.filter(item =>
+        !item.synced && item.retryCount < this.maxRetries
+      );
+
+      if (queue.length === 0) {
+        console.log('No items to sync');
+        return;
+      }
+
+      console.log(`Processing ${queue.length} sync items`);
+
+      let successCount = 0;
+      let errorCount = 0;
 
       for (const item of queue) {
         try {
           await this.syncItem(item as SyncQueueItem);
           await db.syncQueue.update(item.id!, { synced: true });
+          successCount++;
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          console.error(`Sync failed for item ${item.id}:`, errorMessage);
+
           await db.syncQueue.update(item.id!, {
             retryCount: item.retryCount + 1,
             error: errorMessage
           });
+          errorCount++;
         }
       }
 
@@ -65,6 +84,11 @@ class SyncManager {
           updatedAt: new Date()
         });
       }
+
+      if (errorCount > 0) {
+        throw new Error(`${errorCount} dari ${queue.length} item gagal disinkronkan`);
+      }
+
     } finally {
       this.isSyncing = false;
     }
@@ -73,9 +97,14 @@ class SyncManager {
   // Sync individual item
   private async syncItem(item: SyncQueueItem): Promise<void> {
     const endpoint = `${API_BASE_URL}/api/sync/${item.table}`;
-    const token = localStorage.getItem('authToken');
+    // Try both admin and warung auth tokens (admin for owner, warung for employees)
+    const token = localStorage.getItem('adminAuthToken') || localStorage.getItem('warungAuthToken');
 
-    await axios.post(endpoint, {
+    if (!token) {
+      throw new Error('Authentication token not found');
+    }
+
+    const response = await axios.post(endpoint, {
       action: item.action,
       recordId: item.recordId,
       data: item.data,
@@ -83,9 +112,15 @@ class SyncManager {
       deviceId: getDeviceId()
     }, {
       headers: {
-        Authorization: `Bearer ${token}`
-      }
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      timeout: 10000 // 10 second timeout
     });
+
+    if (!response.data.success) {
+      throw new Error(response.data.error || 'Sync failed');
+    }
   }
 
   // Start auto-sync (listen to online event)
@@ -120,16 +155,10 @@ class SyncManager {
     const settings = await db.settings.toArray();
     const lastSyncAt = settings[0]?.lastSyncAt;
 
-    const pendingSyncs = await db.syncQueue
-      .where('synced')
-      .equals(false)
-      .count();
-
-    const failedSyncs = await db.syncQueue
-      .where('synced')
-      .equals(false)
-      .and(item => item.retryCount >= this.maxRetries)
-      .count();
+    // Get all items and filter manually to avoid key range issues
+    const allItems = await db.syncQueue.toArray();
+    const pendingSyncs = allItems.filter(item => !item.synced).length;
+    const failedSyncs = allItems.filter(item => !item.synced && item.retryCount >= this.maxRetries).length;
 
     return {
       lastSyncAt,
@@ -140,6 +169,24 @@ class SyncManager {
 
   // Manual sync trigger
   async manualSync(): Promise<void> {
+    await this.processQueue();
+  }
+
+  // Sync now - alias for manualSync for better naming
+  async syncNow(): Promise<void> {
+    // Check server connection first
+    try {
+      const response = await axios.get(`${API_BASE_URL}/health`, { timeout: 5000 });
+      if (response.status !== 200) {
+        throw new Error('Server tidak dapat dijangkau');
+      }
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        throw new Error('Server tidak dapat dijangkau. Periksa koneksi internet dan server status.');
+      }
+      throw error;
+    }
+
     await this.processQueue();
   }
 }

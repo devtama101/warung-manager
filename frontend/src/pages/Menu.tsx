@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Plus, Edit, Trash2, ChefHat } from 'lucide-react';
+import { Plus, Edit, Trash2, ChefHat, Upload, X } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter } from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
+import { MenuCard } from '@/components/ui/menu-card';
 import { getAllMenu, addMenu, updateMenu, deleteMenu, toggleMenuAvailability } from '@/lib/menu';
 import { getAllInventory } from '@/lib/inventory';
 import { Menu as MenuType } from '@/lib/menu';
@@ -42,9 +43,14 @@ export function Menu() {
     nama: '',
     kategori: 'makanan' as 'makanan' | 'minuman' | 'snack',
     harga: '',
+    hargaModal: '',
+    deskripsi: '',
+    gambar: '',
     tersedia: true,
     ingredients: [] as Array<{ inventoryId: number; inventoryNama: string; qty: string; unit: string }>
   });
+
+  const [imageError, setImageError] = useState<string>('');
 
   useEffect(() => {
     loadData();
@@ -84,9 +90,45 @@ export function Menu() {
       nama: '',
       kategori: 'makanan',
       harga: '',
+      hargaModal: '',
+      deskripsi: '',
+      gambar: '',
       tersedia: true,
       ingredients: []
     });
+    setImageError('');
+  };
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    if (!validTypes.includes(file.type)) {
+      setImageError('Format gambar harus JPG, PNG, atau WebP');
+      return;
+    }
+
+    // Validate file size (1MB = 1048576 bytes)
+    if (file.size > 1048576) {
+      setImageError('Ukuran gambar maksimal 1MB');
+      return;
+    }
+
+    setImageError('');
+
+    // Convert to base64
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setFormData({ ...formData, gambar: reader.result as string });
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const removeImage = () => {
+    setFormData({ ...formData, gambar: '' });
+    setImageError('');
   };
 
   const handleAdd = async () => {
@@ -95,6 +137,9 @@ export function Menu() {
         nama: formData.nama,
         kategori: formData.kategori,
         harga: parseFloat(formData.harga),
+        hargaModal: formData.hargaModal ? parseFloat(formData.hargaModal) : undefined,
+        deskripsi: formData.deskripsi || undefined,
+        gambar: formData.gambar || undefined,
         tersedia: formData.tersedia,
         ingredients: formData.ingredients.map(ing => ({
           inventoryId: ing.inventoryId,
@@ -119,6 +164,9 @@ export function Menu() {
       nama: item.nama,
       kategori: item.kategori,
       harga: item.harga.toString(),
+      hargaModal: item.hargaModal?.toString() || '',
+      deskripsi: item.deskripsi || '',
+      gambar: item.gambar || '',
       tersedia: item.tersedia,
       ingredients: item.ingredients.map(ing => ({
         inventoryId: ing.inventoryId,
@@ -138,6 +186,9 @@ export function Menu() {
         nama: formData.nama,
         kategori: formData.kategori,
         harga: parseFloat(formData.harga),
+        hargaModal: formData.hargaModal ? parseFloat(formData.hargaModal) : undefined,
+        deskripsi: formData.deskripsi || undefined,
+        gambar: formData.gambar || undefined,
         tersedia: formData.tersedia,
         ingredients: formData.ingredients.map(ing => ({
           inventoryId: ing.inventoryId,
@@ -276,65 +327,21 @@ export function Menu() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredMenu.map(item => (
-            <Card key={item.id}>
-              <CardContent className="p-6">
-                <div className="flex justify-between items-start mb-4">
-                  <div>
-                    <h3 className="text-lg font-semibold">{item.nama}</h3>
-                    <Badge variant="secondary" className="mt-1">
-                      {item.kategori}
-                    </Badge>
-                  </div>
-                  <Badge variant={item.tersedia ? 'success' : 'destructive'}>
-                    {item.tersedia ? 'Tersedia' : 'Habis'}
-                  </Badge>
-                </div>
-
-                <div className="mb-4">
-                  <p className="text-2xl font-bold text-blue-600">
-                    {formatCurrency(item.harga)}
-                  </p>
-                </div>
-
-                {item.ingredients.length > 0 && (
-                  <div className="mb-4">
-                    <p className="text-sm font-medium text-gray-600 mb-2">Bahan:</p>
-                    <div className="space-y-1">
-                      {item.ingredients.map((ing, idx) => (
-                        <p key={idx} className="text-sm text-gray-600">
-                          • {ing.inventoryNama} ({ing.qty} {ing.unit})
-                        </p>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                <div className="flex space-x-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleToggleAvailability(item)}
-                    className="flex-1"
-                  >
-                    {item.tersedia ? 'Tandai Habis' : 'Tersedia'}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleEdit(item)}
-                  >
-                    <Edit size={16} />
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="destructive"
-                    onClick={() => handleDelete(item)}
-                  >
-                    <Trash2 size={16} />
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+            <MenuCard
+              key={item.id}
+              id={item.id}
+              nama={item.nama}
+              kategori={item.kategori}
+              harga={item.harga}
+              hargaModal={item.hargaModal}
+              deskripsi={item.deskripsi}
+              gambar={item.gambar}
+              tersedia={item.tersedia}
+              ingredients={item.ingredients}
+              onEdit={() => handleEdit(item)}
+              onDelete={() => handleDelete(item)}
+              onToggleAvailability={() => handleToggleAvailability(item)}
+            />
           ))}
         </div>
       )}
@@ -363,6 +370,17 @@ export function Menu() {
               />
             </div>
 
+            <div>
+              <label className="block text-sm font-medium mb-1">Deskripsi</label>
+              <textarea
+                value={formData.deskripsi}
+                onChange={(e) => setFormData({ ...formData, deskripsi: e.target.value })}
+                placeholder="Deskripsi singkat menu..."
+                className="w-full min-h-[80px] rounded-md border border-gray-300 px-3 py-2 text-sm resize-y"
+                rows={3}
+              />
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium mb-1">Kategori</label>
@@ -377,13 +395,61 @@ export function Menu() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">Harga</label>
+                <label className="block text-sm font-medium mb-1">Harga Jual</label>
                 <Input
                   type="number"
                   value={formData.harga}
                   onChange={(e) => setFormData({ ...formData, harga: e.target.value })}
                   placeholder="0"
                 />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-1">Harga Modal (Opsional)</label>
+              <Input
+                type="number"
+                value={formData.hargaModal}
+                onChange={(e) => setFormData({ ...formData, hargaModal: e.target.value })}
+                placeholder="0"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-1">Gambar Menu</label>
+              <div className="space-y-2">
+                {formData.gambar ? (
+                  <div className="relative inline-block">
+                    <img
+                      src={formData.gambar}
+                      alt="Preview"
+                      className="w-full max-w-xs h-48 object-cover rounded-md border"
+                    />
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={removeImage}
+                      className="absolute top-2 right-2"
+                    >
+                      <X size={16} />
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <Input
+                      type="file"
+                      accept="image/jpeg,image/jpg,image/png,image/webp"
+                      onChange={handleImageUpload}
+                      className="cursor-pointer"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Format: JPG, PNG, WebP. Maksimal 1MB
+                    </p>
+                  </div>
+                )}
+                {imageError && (
+                  <p className="text-xs text-red-500">{imageError}</p>
+                )}
               </div>
             </div>
 
