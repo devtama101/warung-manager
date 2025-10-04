@@ -83,6 +83,58 @@ All admin endpoints are protected by JWT authentication and accessible at `/api/
 }
 ```
 
+### 4. Get Sync Logs
+**Endpoint:** `GET /api/admin/sync-logs`
+
+**Response:**
+```json
+{
+  "success": true,
+  "logs": [
+    {
+      "id": 1,
+      "userId": 4,
+      "deviceId": "emp_kasir1_001",
+      "action": "CREATE",
+      "table": "pesanan",
+      "recordId": 123,
+      "data": {...},
+      "timestamp": "2025-10-04T10:30:00Z",
+      "success": true,
+      "error": null
+    }
+  ]
+}
+```
+
+### 5. Get Synced Data
+**Endpoint:** `GET /api/admin/synced-data`
+
+**Response:**
+```json
+{
+  "success": true,
+  "pesanan": [...],
+  "menu": [...],
+  "inventory": [...]
+}
+```
+
+### 6. Delete Synced Record
+**Endpoint:** `DELETE /api/admin/synced-data/:table/:id`
+
+**Parameters:**
+- `table`: `pesanan`, `menu`, or `inventory`
+- `id`: Record ID to delete
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Record deleted from pesanan"
+}
+```
+
 ## Frontend Pages
 
 ### 1. Users Management (`/admin/users`)
@@ -114,25 +166,67 @@ All admin endpoints are protected by JWT authentication and accessible at `/api/
   - **Revenue by Menu**: Pie chart and detailed table
   - **Menu Performance**: All menu items with quantities and revenue
 
+### 4. Sync Management (`/admin/sync`)
+- Monitor all sync operations from employee devices
+- Features:
+  - **Sync Logs**: View all CREATE/UPDATE/DELETE operations
+  - **Filter by Table**: View pesanan, menu, inventory separately
+  - **Data Review**: Preview synced data before accepting
+  - **Delete Records**: Remove incorrect/duplicate synced data
+  - **Error Tracking**: See failed syncs with error messages
+- Displays:
+  - Total sync count
+  - Synced data counts per table
+  - Status indicators (✅ success / ❌ error)
+  - Device ID and timestamp for each sync
+
 ## Authentication
 
-Currently, admin routes use the warung authentication token for simplicity. In production, you should implement separate admin authentication:
+Admin routes use JWT authentication with admin tokens stored in `localStorage.getItem('adminAuthToken')`.
+
+Employee devices use warung auth tokens stored in `localStorage.getItem('warungAuthToken')`.
+
+The sync endpoint accepts both token types for flexibility:
 
 ```typescript
-// Example: Separate admin auth
-const response = await axios.get(`${API_URL}/api/admin/users`, {
+// Admin accessing admin endpoints
+const response = await axios.get(`${API_URL}/api/admin/sync-logs`, {
   headers: {
     Authorization: `Bearer ${localStorage.getItem('adminAuthToken')}`
+  }
+});
+
+// Employee syncing data
+const response = await axios.post(`${API_URL}/api/sync/pesanan`, data, {
+  headers: {
+    Authorization: `Bearer ${localStorage.getItem('warungAuthToken')}`
   }
 });
 ```
 
 ## Data Flow
 
-1. **User Registration**: Warung registers via `/register`
-2. **User Creates Orders**: Orders saved to PostgreSQL
-3. **Admin Views Data**: Admin dashboard queries aggregated data from database
-4. **Real-time Updates**: Refresh page or implement WebSocket for live updates
+### Employee → Database Flow:
+1. **Employee Login**: Login via `/login` with email/password
+2. **Create Orders**: Orders saved to local IndexedDB
+3. **Auto-Sync**: Every 5 minutes, pending changes sync to PostgreSQL
+4. **Sync Logging**: All operations logged to `sync_logs` table
+5. **Admin Review**: Admin can view/manage synced data via Sync Management
+
+### Data Sync Architecture:
+```
+Employee Device (IndexedDB)
+    ↓ Auto-sync every 5 min
+PostgreSQL Database
+    ↓ Real-time query
+Admin Dashboard
+```
+
+Employee devices work **offline-first**:
+- All operations save to local IndexedDB first
+- Queue syncs when offline
+- Auto-sync when connection restored
+- Admin has full control to review/delete synced data
 
 ## Testing
 

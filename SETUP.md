@@ -66,52 +66,68 @@ npm run dev
 
 ### 5. Access the Application
 
-- **Warung Dashboard**: http://localhost:5173
+- **Employee/Kasir Login**: http://localhost:5173/login
+- **Warung Registration**: http://localhost:5173/register
 - **Admin Dashboard**: http://localhost:5173/admin/login
 
 ## First Time Setup
 
-### Register Your Warung
+### Register Your Warung (Owner)
 
-1. Open http://localhost:5173
-2. You'll be redirected to the login page
-3. Click "Register here"
-4. Fill in the registration form:
-   - **Username**: Your unique username (min 3 characters)
+1. Open http://localhost:5173/register
+2. Fill in the registration form:
+   - **Email**: Your email (will be used for login)
+   - **Password**: Strong password (min 6 characters)
    - **Warung Name**: Your business name
    - **Warung Address**: Your business address (optional)
-   - **Password**: Strong password (min 6 characters)
-5. Click "Register"
-6. You'll be automatically logged in and redirected to the dashboard
+3. Click "Daftar" (Register)
+4. You'll be automatically logged in and redirected to the dashboard
 
-### Admin Access
+### Add Employee/Kasir (via Admin)
 
-For admin dashboard access (to view all warungs and revenue):
-1. Go to http://localhost:5173/admin/login
-2. Use demo credentials:
-   - **Email**: admin@warungpos.com
-   - **Password**: admin123
+1. Login to admin dashboard at http://localhost:5173/admin/login
+2. Go to "Perangkat" (Devices) menu
+3. Click "+ Tambah Perangkat"
+4. Fill in employee details:
+   - Email (for employee login)
+   - Password
+   - Employee name
+   - Device name
+5. System generates unique Device ID automatically
+6. Employee can now login at http://localhost:5173/login
+
+### Employee Login
+
+Employees login at http://localhost:5173/login with credentials provided by admin
 
 ## Features
 
-### Warung Authentication
-- Each warung has its own account
-- Multi-device support per warung
+### Authentication System
+- **Warung Owner**: Register and manage warung
+- **Employees**: Email/password login per device
+- **Admin**: Separate admin dashboard with analytics
 - Secure JWT-based authentication
-- Password reveal buttons on all password fields
 
-### Operational Dashboard (Per-Warung)
-- Dashboard overview
-- Orders management
-- Menu management
-- Inventory tracking
-- Reports and analytics
+### Employee Dashboard (Kasir)
+- Dashboard overview with today's stats
+- Create and manage orders
+- Stock status monitoring
+- Inventory viewing (read-only)
+- Generate daily reports
+- Auto-sync to server (every 5 minutes)
 
-### Admin Dashboard (Cross-Warung)
-- View all registered warungs
+### Admin Dashboard
+- Manage devices/employees
+- Menu management with ingredients/recipes
+- Inventory management
 - Revenue analytics across all warungs
-- User management
+- **Sync Management** - Review and delete synced data
+- Daily reports viewing
 - System settings
+
+For complete feature documentation, see:
+- [Employee Guide](./EMPLOYEE_GUIDE.md)
+- [Admin Guide](./ADMIN_GUIDE.md)
 
 ## Database Schema
 

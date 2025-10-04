@@ -4,8 +4,16 @@ An offline-first Progressive Web App (PWA) designed for small Indonesian food ve
 
 ## 📖 Documentation
 
+**[📚 Documentation Index](./DOCS_INDEX.md)** - Complete guide to all documentation
+
+### User Guides
 - **[Admin Guide](./ADMIN_GUIDE.md)** - Panduan lengkap untuk pemilik warung/admin
 - **[Employee Guide](./EMPLOYEE_GUIDE.md)** - Panduan lengkap untuk karyawan/kasir
+
+### Setup Guides
+- **[Quick Start](./QUICKSTART.md)** - Get running in 5 minutes
+- **[Setup Guide](./SETUP.md)** - Detailed setup instructions
+- **[Admin Integration](./ADMIN_INTEGRATION.md)** - Backend API documentation
 
 ## Features
 
@@ -108,84 +116,40 @@ warung-manager/
 
 ## Getting Started
 
+### Quick Links
+
+- **[Quick Start Guide](./QUICKSTART.md)** - Get running in 5 minutes
+- **[Setup Guide](./SETUP.md)** - Detailed setup instructions
+- **[Admin Integration Guide](./ADMIN_INTEGRATION.md)** - Backend API documentation
+
 ### Prerequisites
 
 - Node.js 20+ and npm
 - PostgreSQL 16 (or Docker for local development)
 
-### 1. Frontend Setup
+### Quick Setup
 
 ```bash
-cd frontend
-npm install
-
-# Start development server
-npm run dev
-
-# Build for production
-npm run build
-
-# Preview production build
-npm run preview
-```
-
-The frontend will be available at `http://localhost:5173`
-
-### 2. Backend Setup
-
-```bash
-cd backend
-npm install
-
-# Copy environment variables
-cp .env.example .env
-
-# Edit .env with your database credentials
-# DATABASE_URL=postgresql://postgres:password@localhost:5432/warung_pos
-# JWT_SECRET=your-secret-key
-# PORT=3001
-
-# Start development server
-npm run dev
-
-# Build for production
-npm run build
-
-# Run production
-npm start
-```
-
-The backend API will be available at `http://localhost:3001`
-
-### 3. Database Setup with Docker
-
-If you don't have PostgreSQL installed, use Docker:
-
-```bash
-# Start PostgreSQL only
+# 1. Start Database (Docker)
 docker-compose up postgres -d
 
-# Or start both API and PostgreSQL
-docker-compose up -d
-
-# View logs
-docker-compose logs -f
-
-# Stop services
-docker-compose down
-```
-
-### 4. Run Database Migrations
-
-```bash
+# 2. Start Backend
 cd backend
-
-# Generate migration files
-npm run db:generate
-
-# Push schema to database
+npm install
 npm run db:push
+npm run dev
+
+# 3. Start Frontend (new terminal)
+cd frontend
+npm install
+npm run dev
 ```
+
+- Frontend: `http://localhost:5173`
+- Backend API: `http://localhost:3001`
+- Admin: `http://localhost:5173/admin/login`
+
+For detailed setup, see [SETUP.md](./SETUP.md)
 
 ## Usage
 

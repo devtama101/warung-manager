@@ -54,25 +54,31 @@ Frontend runs on `http://localhost:5173`
 
 ## First Steps in the App
 
-1. **Dashboard**: See today's summary
-2. **Create Order**:
-   - Click "Buat Pesanan Baru"
+### For Admin:
+1. **Register** at `/register` or login at `/admin/login`
+2. **Add Employees**: Go to "Perangkat" → Click "+ Tambah Perangkat"
+3. **Setup Menu**: Add menu items with ingredients
+4. **Setup Inventory**: Add raw materials/stock
+
+### For Employee/Kasir:
+1. **Login** at `/login` with credentials from admin
+2. **Dashboard**: See today's summary
+3. **Create Order**:
+   - Click "Pesanan" → "Buat Pesanan Baru"
    - Select menu items
    - Click "Buat Pesanan"
-3. **Complete Order**:
+4. **Complete Order**:
    - Go to "Pesanan"
-   - Click "Selesai" on an order
-   - Stock is automatically deducted
-4. **View Reports**:
+   - Click "Selesaikan" on pending order
+   - Stock auto-deducted based on recipe
+5. **View Reports**:
    - Go to "Laporan"
-   - See charts and profit analysis
+   - Click "Buat Laporan Harian" at end of shift
 
-## Sample Data Included
+## Detailed Guides
 
-The app comes with:
-- 6 inventory items
-- 5 menu items
-- Ready to create orders immediately
+- **[Employee Guide](./EMPLOYEE_GUIDE.md)** - Complete guide for cashiers
+- **[Admin Guide](./ADMIN_GUIDE.md)** - Complete guide for owners/admins
 
 ## Testing Offline Mode
 
@@ -85,15 +91,19 @@ The app comes with:
 
 ## Next Steps
 
-- Read the full [README.md](./README.md) for detailed documentation
-- Check [WARUNG_POS_PRD.md](./WARUNG_POS_PRD.md) for complete feature specs
-- Deploy to production (instructions in README)
+- **[Setup Guide](./SETUP.md)** - Detailed setup instructions
+- **[Admin Integration](./ADMIN_INTEGRATION.md)** - Backend API documentation
+- **[README.md](./README.md)** - Technical documentation
+- **[WARUNG_POS_PRD.md](./WARUNG_POS_PRD.md)** - Product requirements
 
 ## Need Help?
 
 Common issues:
 - **Port already in use**: Stop other apps on ports 5173 or 3001
 - **Database error**: Make sure Docker is running and PostgreSQL is started
+- **Sync not working**: Check `.env` file has correct API URL
 - **Install fails**: Use Node.js 20+ and latest npm
+
+See troubleshooting in [Employee Guide](./EMPLOYEE_GUIDE.md) and [Admin Guide](./ADMIN_GUIDE.md)
 
 Enjoy your Warung POS! 🍜
