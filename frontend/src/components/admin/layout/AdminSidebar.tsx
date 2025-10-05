@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Smartphone, TrendingUp, Settings, X, BarChart3, ChefHat, Package, RefreshCw } from 'lucide-react';
+import { LayoutDashboard, Smartphone, TrendingUp, Settings, X, ChefHat, Package, RefreshCw, Trash2, ClipboardList } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -9,14 +9,15 @@ interface AdminSidebarProps {
 }
 
 const menuItems = [
-  { icon: LayoutDashboard, label: 'Beranda', path: '/admin' },
-  { icon: Smartphone, label: 'Perangkat', path: '/admin/devices' },
+  { icon: LayoutDashboard, label: 'Dashboard', path: '/admin' },
+  { icon: TrendingUp, label: 'Pendapatan', path: '/admin/revenue' },
+  { icon: ClipboardList, label: 'Monitoring Pesanan', path: '/admin/orders' },
   { icon: ChefHat, label: 'Menu', path: '/admin/menu' },
   { icon: Package, label: 'Bahan Baku', path: '/admin/inventory' },
-  { icon: TrendingUp, label: 'Pendapatan', path: '/admin/revenue' },
-  { icon: BarChart3, label: 'Laporan', path: '/admin/reports' },
+  { icon: Smartphone, label: 'Perangkat', path: '/admin/devices' },
   { icon: RefreshCw, label: 'Sinkronisasi', path: '/admin/sync' },
   { icon: Settings, label: 'Pengaturan', path: '/admin/settings' },
+  { icon: Trash2, label: 'Reset Data', path: '/admin/reset' },
 ];
 
 export function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {

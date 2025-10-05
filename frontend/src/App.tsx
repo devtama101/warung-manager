@@ -17,9 +17,12 @@ import { AdminLogin } from './pages/admin/AdminLogin';
 import { Users } from './pages/admin/Users';
 import { UserDetailNew as UserDetail } from './pages/admin/UserDetailNew';
 import { RevenueNew as Revenue } from './pages/admin/RevenueNew';
+import { OrderMonitoring } from './pages/admin/OrderMonitoring';
 import { AdminReports } from './pages/admin/AdminReports';
 import { Settings } from './pages/admin/Settings';
 import SyncManagement from './pages/admin/SyncManagement';
+import { ResetData } from './pages/admin/ResetData';
+import { DatabaseMonitor } from './components/debug/DatabaseMonitor';
 import { WarungLogin } from './pages/WarungLogin';
 import { WarungRegister } from './pages/WarungRegister';
 import { ProtectedRoute } from './components/admin/ProtectedRoute';
@@ -28,6 +31,8 @@ import { AuthProvider } from './contexts/AuthContext';
 import { WarungAuthProvider, setupAxiosInterceptors } from './contexts/WarungAuthContext';
 import { initializeDevice, seedInitialData } from './db/schema';
 import { syncManager } from './lib/sync';
+import { Toaster } from 'sonner';
+import './lib/indexedDBDebugger';
 
 function App() {
   useEffect(() => {
@@ -102,12 +107,16 @@ function App() {
               <Route path="menu" element={<Menu />} />
               <Route path="inventory" element={<Inventory />} />
               <Route path="revenue" element={<Revenue />} />
+              <Route path="orders" element={<OrderMonitoring />} />
               <Route path="reports" element={<AdminReports />} />
               <Route path="settings" element={<Settings />} />
               <Route path="sync" element={<SyncManagement />} />
+              <Route path="reset" element={<ResetData />} />
+              <Route path="debug" element={<DatabaseMonitor />} />
             </Route>
           </Routes>
         </BrowserRouter>
+        <Toaster />
       </AuthProvider>
     </WarungAuthProvider>
   );

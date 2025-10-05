@@ -1,246 +1,379 @@
 import { useEffect, useState } from 'react';
-import { Users, TrendingUp, DollarSign, UserCheck, UserX } from 'lucide-react';
+import { ShoppingBag, Award, TrendingUp, Clock, DollarSign, Package } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { getAdminStats, getRevenueData } from '@/lib/admin/mockData';
-import { AdminDashboardStats, RevenueData } from '@/lib/admin/types';
-import { formatCurrency } from '@/lib/utils';
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { Button } from '@/components/ui/button';
+import { formatNumber, formatCurrency } from '@/lib/utils';
+import { db } from '@/db/schema';
+import { subDays, startOfDay, endOfDay, format } from 'date-fns';
+
+interface MenuPopularity {
+  menuNama: string;
+  jumlahTerjual: number;
+  totalPendapatan: number;
+  totalKeuntungan: number;
+}
 
 export function AdminDashboard() {
-  const [stats, setStats] = useState<AdminDashboardStats | null>(null);
-  const [revenueData, setRevenueData] = useState<RevenueData[]>([]);
+  const [todayOrders, setTodayOrders] = useState(0);
+  const [todayRevenue, setTodayRevenue] = useState(0);
+  const [todayProfit, setTodayProfit] = useState(0);
+  const [weeklyOrders, setWeeklyOrders] = useState(0);
+  const [weeklyRevenue, setWeeklyRevenue] = useState(0);
+  const [weeklyProfit, setWeeklyProfit] = useState(0);
+  const [topSellingItem, setTopSellingItem] = useState('');
+  const [avgOrderValue, setAvgOrderValue] = useState(0);
+  const [menuPopularity, setMenuPopularity] = useState<MenuPopularity[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    document.title = 'Dashboard Admin - Warung POS';
-    loadData();
+    document.title = 'Laporan Lengkap - Warung POS';
+    loadReports();
   }, []);
 
-  const loadData = async () => {
+  const loadReports = async () => {
     setLoading(true);
     try {
-      const [statsData, revenue] = await Promise.all([
-        getAdminStats(),
-        getRevenueData()
-      ]);
-      setStats(statsData);
-      setRevenueData(revenue);
+      const now = new Date();
+      const todayStart = startOfDay(now);
+      const todayEnd = endOfDay(now);
+      const weekAgo = startOfDay(subDays(now, 6));
+
+      // Get all menu items for profit calculation
+      const allMenu = await db.menu.toArray();
+      const menuProfitMap = new Map(allMenu.map(m => [m.nama, m.harga - m.hargaModal]));
+
+      // Calculate profit for an array of orders
+      const calculateOrderProfit = (orders: any[]) => {
+        return orders.reduce((totalProfit, order) => {
+          const orderProfit = order.items.reduce((orderTotal: number, item: any) => {
+            const profitPerItem = menuProfitMap.get(item.menuNama) || 0;
+            return orderTotal + (profitPerItem * item.qty);
+          }, 0);
+          return totalProfit + orderProfit;
+        }, 0);
+      };
+
+      // Get today's orders - try multiple approaches
+      let todayOrdersList = await db.pesanan
+        .where('tanggal')
+        .between(todayStart, todayEnd, true, true)
+        .and(p => p.status === 'completed')
+        .toArray();
+
+      // If no orders found with 'completed', try other common statuses
+      if (todayOrdersList.length === 0) {
+        todayOrdersList = await db.pesanan
+          .where('tanggal')
+          .between(todayStart, todayEnd, true, true)
+          .and(p => p.status === 'selesai')
+          .toArray();
+      }
+
+      // Still no orders? Try without status filter
+      if (todayOrdersList.length === 0) {
+        todayOrdersList = await db.pesanan
+          .where('tanggal')
+          .between(todayStart, todayEnd, true, true)
+          .toArray();
+      }
+
+      setTodayOrders(todayOrdersList.length);
+
+      const todayRev = todayOrdersList.reduce((sum, order) => sum + order.total, 0);
+      const todayPrf = calculateOrderProfit(todayOrdersList);
+      setTodayRevenue(todayRev);
+      setTodayProfit(todayPrf);
+
+      // Get last 7 days orders - try multiple approaches
+      let weekOrdersList = await db.pesanan
+        .where('tanggal')
+        .between(weekAgo, todayEnd, true, true)
+        .and(p => p.status === 'completed')
+        .toArray();
+
+      // If no orders found with 'completed', try other common statuses
+      if (weekOrdersList.length === 0) {
+        weekOrdersList = await db.pesanan
+          .where('tanggal')
+          .between(weekAgo, todayEnd, true, true)
+          .and(p => p.status === 'selesai')
+          .toArray();
+      }
+
+      // Still no orders? Try without status filter
+      if (weekOrdersList.length === 0) {
+        weekOrdersList = await db.pesanan
+          .where('tanggal')
+          .between(weekAgo, todayEnd, true, true)
+          .toArray();
+      }
+
+      setWeeklyOrders(weekOrdersList.length);
+
+      const weekRev = weekOrdersList.reduce((sum, order) => sum + order.total, 0);
+      const weekPrf = calculateOrderProfit(weekOrdersList);
+      setWeeklyRevenue(weekRev);
+      setWeeklyProfit(weekPrf);
+      setAvgOrderValue(weekOrdersList.length > 0 ? weekRev / weekOrdersList.length : 0);
+
+      // Calculate menu popularity with revenue and profit
+      const menuMap = new Map<string, { qty: number; revenue: number; profit: number }>();
+
+      weekOrdersList.forEach(order => {
+        order.items.forEach(item => {
+          const current = menuMap.get(item.menuNama) || { qty: 0, revenue: 0, profit: 0 };
+          const itemRevenue = item.harga * item.qty;
+          const profitPerItem = menuProfitMap.get(item.menuNama) || 0;
+          const itemProfit = profitPerItem * item.qty;
+
+          menuMap.set(item.menuNama, {
+            qty: current.qty + item.qty,
+            revenue: current.revenue + itemRevenue,
+            profit: current.profit + itemProfit
+          });
+        });
+      });
+
+      const menuPopArray: MenuPopularity[] = Array.from(menuMap.entries())
+        .map(([menuNama, data]) => ({
+          menuNama,
+          jumlahTerjual: data.qty,
+          totalPendapatan: data.revenue,
+          totalKeuntungan: data.profit
+        }))
+        .sort((a, b) => b.totalPendapatan - a.totalPendapatan);
+
+      setMenuPopularity(menuPopArray.slice(0, 10));
+      setTopSellingItem(menuPopArray[0]?.menuNama || '-');
+
     } finally {
       setLoading(false);
     }
   };
 
-  const planDistributionData = stats ? [
-    { name: 'Free', value: stats.planDistribution.free, color: '#94a3b8' },
-    { name: 'Basic', value: stats.planDistribution.basic, color: '#3b82f6' },
-    { name: 'Premium', value: stats.planDistribution.premium, color: '#8b5cf6' },
-    { name: 'Enterprise', value: stats.planDistribution.enterprise, color: '#eab308' }
-  ] : [];
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <p className="text-gray-600">Memuat...</p>
-      </div>
-    );
-  }
-
-  if (!stats) return null;
-
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      {/* Header - Mobile Responsive */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Dashboard Admin</h1>
-          <p className="text-gray-600 mt-1">Ringkasan semua pengguna dan pendapatan</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Laporan Lengkap</h1>
+          <p className="text-gray-600 mt-1 text-sm sm:text-base">Analisis penjualan, pendapatan, dan keuntungan warung</p>
         </div>
+        <Button onClick={loadReports} className="w-full sm:w-auto">
+          Refresh Data
+        </Button>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Pengguna</CardTitle>
-            <Users className="h-4 w-4 text-blue-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.totalUsers}</div>
-            <p className="text-xs text-green-600 mt-1">
-              +{stats.newUsersThisMonth} bulan ini
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pengguna Aktif</CardTitle>
-            <UserCheck className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.activeUsers}</div>
-            <p className="text-xs text-gray-600 mt-1">
-              {((stats.activeUsers / stats.totalUsers) * 100).toFixed(1)}% dari total
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">MRR</CardTitle>
-            <TrendingUp className="h-4 w-4 text-purple-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(stats.monthlyRecurringRevenue)}</div>
-            <p className="text-xs text-gray-600 mt-1">Pendapatan Berulang Bulanan</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Pendapatan</CardTitle>
-            <DollarSign className="h-4 w-4 text-yellow-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(stats.totalRevenue)}</div>
-            <p className="text-xs text-gray-600 mt-1">Sepanjang waktu</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Charts Grid */}
-      <div className="grid lg:grid-cols-2 gap-6">
-        {/* Revenue Chart */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Tren Pendapatan (6 Bulan Terakhir)</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={revenueData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" />
-                <YAxis />
-                <Tooltip
-                  formatter={(value: number) => formatCurrency(value)}
-                />
-                <Legend />
-                <Line
-                  type="monotone"
-                  dataKey="revenue"
-                  stroke="#3b82f6"
-                  strokeWidth={2}
-                  name="Pendapatan"
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
-        {/* User Growth Chart */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Pertumbuhan vs Kehilangan Pengguna</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={revenueData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Bar dataKey="newUsers" fill="#10b981" name="Pengguna Baru" />
-                <Bar dataKey="churnedUsers" fill="#ef4444" name="Pengguna Keluar" />
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Plan Distribution and Stats */}
-      <div className="grid lg:grid-cols-3 gap-6">
-        {/* Plan Distribution Pie Chart */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Distribusi Paket</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={250}>
-              <PieChart>
-                <Pie
-                  data={planDistributionData}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={(entry) => `${entry.name}: ${entry.value}`}
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="value"
-                >
-                  {planDistributionData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
-        {/* Additional Stats */}
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle>Metrik Utama</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 gap-6">
-              <div>
-                <div className="flex items-center space-x-2 mb-2">
-                  <UserCheck className="h-5 w-5 text-green-600" />
-                  <span className="text-sm font-medium text-gray-600">Pengguna Aktif</span>
+      {loading ? (
+        <div className="text-center py-12">
+          <p className="text-gray-600">Memuat laporan...</p>
+        </div>
+      ) : (
+        <>
+          {/* Today's Summary */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-xs sm:text-sm font-medium">
+                  Pesanan Hari Ini
+                </CardTitle>
+                <ShoppingBag className="h-4 w-4 text-green-600 flex-shrink-0" />
+              </CardHeader>
+              <CardContent className="pt-2">
+                <div className="text-xl sm:text-2xl font-bold text-green-600">
+                  {formatNumber(todayOrders)}
                 </div>
-                <p className="text-3xl font-bold">{stats.activeUsers}</p>
-                <p className="text-sm text-gray-500 mt-1">
-                  {((stats.activeUsers / stats.totalUsers) * 100).toFixed(1)}% tingkat aktif
-                </p>
-              </div>
+                <p className="text-xs text-gray-600 mt-1">pesanan selesai</p>
+              </CardContent>
+            </Card>
 
-              <div>
-                <div className="flex items-center space-x-2 mb-2">
-                  <Users className="h-5 w-5 text-blue-600" />
-                  <span className="text-sm font-medium text-gray-600">Pengguna Trial</span>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-xs sm:text-sm font-medium">
+                  Pendapatan Hari Ini
+                </CardTitle>
+                <DollarSign className="h-4 w-4 text-blue-600 flex-shrink-0" />
+              </CardHeader>
+              <CardContent className="pt-2">
+                <div className="text-xl sm:text-2xl font-bold text-blue-600">
+                  {formatCurrency(todayRevenue)}
                 </div>
-                <p className="text-3xl font-bold">{stats.trialUsers}</p>
-                <p className="text-sm text-gray-500 mt-1">
-                  Potensi konversi
-                </p>
-              </div>
+                <p className="text-xs text-gray-600 mt-1">total penjualan</p>
+              </CardContent>
+            </Card>
 
-              <div>
-                <div className="flex items-center space-x-2 mb-2">
-                  <UserX className="h-5 w-5 text-red-600" />
-                  <span className="text-sm font-medium text-gray-600">Tingkat Keluar</span>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-xs sm:text-sm font-medium">
+                  Keuntungan Hari Ini
+                </CardTitle>
+                <TrendingUp className="h-4 w-4 text-purple-600 flex-shrink-0" />
+              </CardHeader>
+              <CardContent className="pt-2">
+                <div className="text-xl sm:text-2xl font-bold text-purple-600">
+                  {formatCurrency(todayProfit)}
                 </div>
-                <p className="text-3xl font-bold">{stats.churnRate}%</p>
-                <p className="text-sm text-gray-500 mt-1">
-                  Rata-rata bulanan
-                </p>
-              </div>
+                <p className="text-xs text-gray-600 mt-1">profit bersih</p>
+              </CardContent>
+            </Card>
+          </div>
 
-              <div>
-                <div className="flex items-center space-x-2 mb-2">
-                  <TrendingUp className="h-5 w-5 text-purple-600" />
-                  <span className="text-sm font-medium text-gray-600">Pertumbuhan</span>
+          {/* Weekly Summary */}
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-xs sm:text-sm font-medium">
+                  Pesanan 7 Hari
+                </CardTitle>
+                <Package className="h-4 w-4 text-gray-600 flex-shrink-0" />
+              </CardHeader>
+              <CardContent className="pt-2">
+                <div className="text-lg sm:text-2xl font-bold">
+                  {formatNumber(weeklyOrders)}
                 </div>
-                <p className="text-3xl font-bold">+{stats.newUsersThisMonth}</p>
-                <p className="text-sm text-gray-500 mt-1">
-                  Pengguna baru bulan ini
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+                <p className="text-xs text-gray-600 mt-1">total minggu ini</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-xs sm:text-sm font-medium">
+                  Pendapatan 7 Hari
+                </CardTitle>
+                <DollarSign className="h-4 w-4 text-blue-600 flex-shrink-0" />
+              </CardHeader>
+              <CardContent className="pt-2">
+                <div className="text-lg sm:text-2xl font-bold text-blue-600">
+                  {formatCurrency(weeklyRevenue)}
+                </div>
+                <p className="text-xs text-gray-600 mt-1">total penjualan</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-xs sm:text-sm font-medium">
+                  Keuntungan 7 Hari
+                </CardTitle>
+                <TrendingUp className="h-4 w-4 text-purple-600 flex-shrink-0" />
+              </CardHeader>
+              <CardContent className="pt-2">
+                <div className="text-lg sm:text-2xl font-bold text-purple-600">
+                  {formatCurrency(weeklyProfit)}
+                </div>
+                <p className="text-xs text-gray-600 mt-1">profit minggu ini</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-xs sm:text-sm font-medium">
+                  Rata-rata per Pesanan
+                </CardTitle>
+                <Clock className="h-4 w-4 text-green-600 flex-shrink-0" />
+              </CardHeader>
+              <CardContent className="pt-2">
+                <div className="text-lg sm:text-2xl font-bold text-green-600">
+                  {formatCurrency(avgOrderValue)}
+                </div>
+                <p className="text-xs text-gray-600 mt-1">nilai rata-rata</p>
+              </CardContent>
+            </Card>
+          </div>
+
+  
+          {/* Top Selling Item and Popular Menu - Grid Layout */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+            {/* Top Selling Item Info - Left */}
+            <Card className="bg-gradient-to-r from-yellow-50 to-orange-50 border-yellow-200 h-full">
+              <CardContent className="p-4 sm:p-6 h-full flex flex-col justify-center">
+                <div className="text-center space-y-3 sm:space-y-4">
+                  <div className="flex justify-center">
+                    <Award className="h-12 w-12 sm:h-16 sm:w-16 text-yellow-600" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-sm sm:text-lg text-gray-900 mb-2">Menu Terlaris Minggu Ini</h3>
+                    <p className="text-xl sm:text-3xl font-bold text-yellow-600 mb-2 sm:mb-3 break-words">{topSellingItem}</p>
+                    <p className="text-xs sm:text-sm text-gray-600">
+                      Item paling populer dalam 7 hari terakhir
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Popular Menu Items with Revenue & Profit - Right */}
+            <Card className="lg:col-span-2">
+              <CardHeader className="pb-2 sm:pb-4">
+                <CardTitle className="text-base sm:text-lg">Menu Terpopuler dengan Analisis Keuangan (7 Hari Terakhir)</CardTitle>
+              </CardHeader>
+              <CardContent className="pt-0 sm:pt-2">
+                {menuPopularity.length === 0 ? (
+                  <p className="text-center text-gray-600 py-8">Belum ada data penjualan</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[500px]">
+                      <thead className="border-b">
+                        <tr>
+                          <th className="text-left py-2 px-2 sm:py-3 sm:px-4 font-medium text-gray-600 text-xs sm:text-sm">Peringkat</th>
+                          <th className="text-left py-2 px-2 sm:py-3 sm:px-4 font-medium text-gray-600 text-xs sm:text-sm">Nama Menu</th>
+                          <th className="text-right py-2 px-2 sm:py-3 sm:px-4 font-medium text-gray-600 text-xs sm:text-sm">Terjual</th>
+                          <th className="text-right py-2 px-2 sm:py-3 sm:px-4 font-medium text-gray-600 text-xs sm:text-sm">Pendapatan</th>
+                          <th className="text-right py-2 px-2 sm:py-3 sm:px-4 font-medium text-gray-600 text-xs sm:text-sm">Keuntungan</th>
+                          <th className="text-right py-2 px-2 sm:py-3 sm:px-4 font-medium text-gray-600 text-xs sm:text-sm">Margin</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {menuPopularity.map((item, index) => {
+                          const margin = item.totalPendapatan > 0
+                            ? (item.totalKeuntungan / item.totalPendapatan) * 100
+                            : 0;
+
+                          return (
+                            <tr key={item.menuNama} className="border-b last:border-b-0">
+                              <td className="py-2 px-2 sm:py-3 sm:px-4">
+                                <div className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center font-bold text-white text-xs sm:text-sm ${
+                                  index === 0 ? 'bg-yellow-500' :
+                                  index === 1 ? 'bg-gray-400' :
+                                  index === 2 ? 'bg-orange-600' :
+                                  'bg-blue-500'
+                                }`}>
+                                  {index + 1}
+                                </div>
+                              </td>
+                              <td className="py-2 px-2 sm:py-3 sm:px-4 font-medium text-xs sm:text-sm">{item.menuNama}</td>
+                              <td className="py-2 px-2 sm:py-3 sm:px-4 text-right">
+                                <span className="font-bold text-green-600 text-xs sm:text-sm">
+                                  {formatNumber(item.jumlahTerjual)} porsi
+                                </span>
+                              </td>
+                              <td className="py-2 px-2 sm:py-3 sm:px-4 text-right font-bold text-blue-600 text-xs sm:text-sm">
+                                {formatCurrency(item.totalPendapatan)}
+                              </td>
+                              <td className="py-2 px-2 sm:py-3 sm:px-4 text-right font-bold text-purple-600 text-xs sm:text-sm">
+                                {formatCurrency(item.totalKeuntungan)}
+                              </td>
+                              <td className="py-2 px-2 sm:py-3 sm:px-4 text-right">
+                                <span className={`font-semibold text-xs sm:text-sm ${
+                                  margin >= 50 ? 'text-green-600' :
+                                  margin >= 30 ? 'text-yellow-600' :
+                                  'text-red-600'
+                                }`}>
+                                  {margin.toFixed(1)}%
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </>
+      )}
     </div>
   );
 }

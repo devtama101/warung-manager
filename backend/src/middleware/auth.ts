@@ -5,7 +5,8 @@ const JWT_SECRET = process.env.JWT_SECRET || 'change-me-in-production';
 
 export interface AuthPayload {
   userId: number;
-  username: string;
+  email: string;
+  warungNama: string;
 }
 
 export async function authMiddleware(c: Context, next: Next) {
@@ -22,7 +23,8 @@ export async function authMiddleware(c: Context, next: Next) {
 
     // Attach user info to context
     c.set('userId', decoded.userId);
-    c.set('username', decoded.username);
+    c.set('email', decoded.email);
+    c.set('warungNama', decoded.warungNama);
 
     await next();
   } catch (error) {

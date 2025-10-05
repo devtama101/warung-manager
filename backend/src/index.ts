@@ -2,14 +2,18 @@ import { serve } from '@hono/node-server';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import 'dotenv/config';
+import { readFile } from 'fs/promises';
 import { db } from './db/index';
-import { devices, pesanan, menu, inventory, syncLogs, dailyReports } from './db/schema';
+import { devices, pesanan, menu, inventory, syncLogs, dailyReports, conflictLogs, inventoryEvents } from './db/schema';
 import { eq } from 'drizzle-orm';
 import authRoutes from './routes/auth';
 import adminRoutes from './routes/admin';
 import deviceRoutes from './routes/devices';
 import employeeRoutes from './routes/employees';
+import resetRoutes from './routes/reset';
+import uploadRoutes from './routes/upload';
 import { authMiddleware } from './middleware/auth';
+import './types';
 
 const app = new Hono();
 
@@ -54,6 +58,34 @@ app.route('/api/devices', deviceRoutes);
 
 // Employee routes
 app.route('/api/employees', employeeRoutes);
+
+// Reset routes (dangerous - only for development/testing)
+app.route('/api/reset', resetRoutes);
+
+// Upload routes
+app.route('/api/upload', uploadRoutes);
+
+// Serve static files for uploads
+app.get('/uploads/*', async (c) => {
+  const path = c.req.path.replace('/uploads/', '');
+  const filePath = `./uploads/${path}`;
+
+  try {
+    // Read file
+    const fileBuffer = await readFile(filePath);
+
+    // Return file with appropriate content type
+    return new Response(fileBuffer, {
+      headers: {
+        'Content-Type': path.endsWith('.jpg') || path.endsWith('.jpeg') ? 'image/jpeg' :
+                      path.endsWith('.png') ? 'image/png' :
+                      path.endsWith('.webp') ? 'image/webp' : 'application/octet-stream'
+      }
+    });
+  } catch (error) {
+    return c.json({ error: 'File not found' }, 404);
+  }
+});
 
 // Sync routes - with authentication
 app.post('/api/sync/:table', authMiddleware, async (c) => {
@@ -171,7 +203,9 @@ async function handlePesananSync(action: string, userId: number, deviceId: strin
           status: data.status,
           tanggal: new Date(data.tanggal),
           createdAt: new Date(data.createdAt),
-          updatedAt: new Date(data.updatedAt)
+          updatedAt: new Date(data.updatedAt),
+          version: 1,
+          lastModifiedBy: deviceId
         }).returning({ id: pesanan.id });
         console.log(`Created pesanan with localId ${data.id}, serverId ${newPesanan.id}`);
         return { success: true, serverId: newPesanan.id };
@@ -183,13 +217,47 @@ async function handlePesananSync(action: string, userId: number, deviceId: strin
         });
 
         if (existingPesanan) {
+          // Optimistic locking: check version
+          const clientVersion = data.version || 1;
+          if (existingPesanan.version !== clientVersion) {
+            // Version conflict - log it
+            await db.insert(conflictLogs).values({
+              userId,
+              deviceId,
+              entityType: 'pesanan',
+              entityId: existingPesanan.id,
+              conflictType: 'VERSION_MISMATCH',
+              clientData: data,
+              serverData: existingPesanan,
+              resolution: 'SERVER_WINS',
+              resolvedBy: 'system',
+              timestamp: new Date(),
+              resolvedAt: new Date(),
+              notes: `Client version ${clientVersion} vs Server version ${existingPesanan.version}`
+            });
+
+            console.warn(`Version conflict for pesanan localId ${data.id}: client ${clientVersion} vs server ${existingPesanan.version}`);
+
+            // Return server data with conflict flag
+            return {
+              success: true,
+              serverId: existingPesanan.id,
+              conflict: true,
+              serverData: existingPesanan,
+              message: 'Version conflict resolved with server data'
+            };
+          }
+
+          // Update with version increment
           await db.update(pesanan)
             .set({
               status: data.status,
-              updatedAt: new Date(data.updatedAt)
+              updatedAt: new Date(data.updatedAt),
+              version: existingPesanan.version + 1,
+              lastModifiedBy: deviceId
             })
             .where(eq(pesanan.localId, data.id));
-          console.log(`Updated existing pesanan with localId ${data.id}, serverId ${existingPesanan.id}`);
+          console.log(`Updated existing pesanan with localId ${data.id}, serverId ${existingPesanan.id}, version ${existingPesanan.version + 1}`);
           return { success: true, serverId: existingPesanan.id };
         } else {
           const [newPesanan] = await db.insert(pesanan).values({
@@ -202,7 +270,9 @@ async function handlePesananSync(action: string, userId: number, deviceId: strin
             status: data.status,
             tanggal: new Date(data.tanggal),
             createdAt: new Date(data.createdAt),
-            updatedAt: new Date(data.updatedAt)
+            updatedAt: new Date(data.updatedAt),
+            version: 1,
+            lastModifiedBy: deviceId
           }).returning({ id: pesanan.id });
           console.log(`Created new pesanan with localId ${data.id}, serverId ${newPesanan.id}`);
           return { success: true, serverId: newPesanan.id };
@@ -232,7 +302,9 @@ async function handleMenuSync(action: string, userId: number, deviceId: string, 
           gambar: data.gambar,
           ingredients: data.ingredients,
           createdAt: new Date(data.createdAt),
-          updatedAt: new Date(data.updatedAt)
+          updatedAt: new Date(data.updatedAt),
+          version: 1,
+          lastModifiedBy: deviceId
         }).returning({ id: menu.id });
         console.log(`Created menu with localId ${data.id}, serverId ${newMenu.id}`);
         return { success: true, serverId: newMenu.id };
@@ -244,6 +316,38 @@ async function handleMenuSync(action: string, userId: number, deviceId: string, 
         });
 
         if (existingMenu) {
+          // Optimistic locking: check version
+          const clientVersion = data.version || 1;
+          if (existingMenu.version !== clientVersion) {
+            // Version conflict - log it
+            await db.insert(conflictLogs).values({
+              userId,
+              deviceId,
+              entityType: 'menu',
+              entityId: existingMenu.id,
+              conflictType: 'VERSION_MISMATCH',
+              clientData: data,
+              serverData: existingMenu,
+              resolution: 'SERVER_WINS',
+              resolvedBy: 'system',
+              timestamp: new Date(),
+              resolvedAt: new Date(),
+              notes: `Client version ${clientVersion} vs Server version ${existingMenu.version}`
+            });
+
+            console.warn(`Version conflict for menu localId ${data.id}: client ${clientVersion} vs server ${existingMenu.version}`);
+
+            // Return server data with conflict flag
+            return {
+              success: true,
+              serverId: existingMenu.id,
+              conflict: true,
+              serverData: existingMenu,
+              message: 'Version conflict resolved with server data'
+            };
+          }
+
+          // Update with version increment
           await db.update(menu)
             .set({
               nama: data.nama,
@@ -252,10 +356,12 @@ async function handleMenuSync(action: string, userId: number, deviceId: string, 
               tersedia: data.tersedia,
               gambar: data.gambar,
               ingredients: data.ingredients,
-              updatedAt: new Date(data.updatedAt)
+              updatedAt: new Date(data.updatedAt),
+              version: existingMenu.version + 1,
+              lastModifiedBy: deviceId
             })
             .where(eq(menu.localId, data.id));
-          console.log(`Updated existing menu with localId ${data.id}, serverId ${existingMenu.id}`);
+          console.log(`Updated existing menu with localId ${data.id}, serverId ${existingMenu.id}, version ${existingMenu.version + 1}`);
           return { success: true, serverId: existingMenu.id };
         } else {
           const [newMenu] = await db.insert(menu).values({
@@ -269,7 +375,9 @@ async function handleMenuSync(action: string, userId: number, deviceId: string, 
             gambar: data.gambar,
             ingredients: data.ingredients,
             createdAt: new Date(data.createdAt),
-            updatedAt: new Date(data.updatedAt)
+            updatedAt: new Date(data.updatedAt),
+            version: 1,
+            lastModifiedBy: deviceId
           }).returning({ id: menu.id });
           console.log(`Created new menu with localId ${data.id}, serverId ${newMenu.id}`);
           return { success: true, serverId: newMenu.id };
@@ -301,8 +409,26 @@ async function handleInventorySync(action: string, userId: number, deviceId: str
           supplier: data.supplier,
           tanggalBeli: data.tanggalBeli ? new Date(data.tanggalBeli) : null,
           createdAt: new Date(data.createdAt),
-          updatedAt: new Date(data.updatedAt)
+          updatedAt: new Date(data.updatedAt),
+          version: 1,
+          lastModifiedBy: deviceId
         }).returning({ id: inventory.id });
+
+        // Create initial inventory event
+        await db.insert(inventoryEvents).values({
+          userId,
+          inventoryId: newInventory.id,
+          eventType: 'INITIAL',
+          quantity: data.stok,
+          unit: data.unit,
+          reason: 'Initial stock setup',
+          referenceType: 'manual_setup',
+          deviceId,
+          timestamp: new Date(),
+          syncedAt: new Date(),
+          version: 1
+        });
+
         console.log(`Created inventory with localId ${data.id}, serverId ${newInventory.id}`);
         return { success: true, serverId: newInventory.id };
 
@@ -313,6 +439,41 @@ async function handleInventorySync(action: string, userId: number, deviceId: str
         });
 
         if (existingInventory) {
+          // Optimistic locking: check version
+          const clientVersion = data.version || 1;
+          if (existingInventory.version !== clientVersion) {
+            // Version conflict - log it
+            await db.insert(conflictLogs).values({
+              userId,
+              deviceId,
+              entityType: 'inventory',
+              entityId: existingInventory.id,
+              conflictType: 'VERSION_MISMATCH',
+              clientData: data,
+              serverData: existingInventory,
+              resolution: 'SERVER_WINS',
+              resolvedBy: 'system',
+              timestamp: new Date(),
+              resolvedAt: new Date(),
+              notes: `Client version ${clientVersion} vs Server version ${existingInventory.version}`
+            });
+
+            console.warn(`Version conflict for inventory localId ${data.id}: client ${clientVersion} vs server ${existingInventory.version}`);
+
+            // Return server data with conflict flag
+            return {
+              success: true,
+              serverId: existingInventory.id,
+              conflict: true,
+              serverData: existingInventory,
+              message: 'Version conflict resolved with server data'
+            };
+          }
+
+          // Calculate stock difference for event sourcing
+          const stockDiff = Number(data.stok) - Number(existingInventory.stok);
+
+          // Update with version increment
           await db.update(inventory)
             .set({
               nama: data.nama,
@@ -323,10 +484,30 @@ async function handleInventorySync(action: string, userId: number, deviceId: str
               hargaBeli: data.hargaBeli,
               supplier: data.supplier,
               tanggalBeli: data.tanggalBeli ? new Date(data.tanggalBeli) : null,
-              updatedAt: new Date(data.updatedAt)
+              updatedAt: new Date(data.updatedAt),
+              version: existingInventory.version + 1,
+              lastModifiedBy: deviceId
             })
             .where(eq(inventory.localId, data.id));
-          console.log(`Updated existing inventory with localId ${data.id}, serverId ${existingInventory.id}`);
+
+          // Create inventory event for stock change
+          if (stockDiff !== 0) {
+            await db.insert(inventoryEvents).values({
+              userId,
+              inventoryId: existingInventory.id,
+              eventType: stockDiff > 0 ? 'STOCK_IN' : 'STOCK_OUT',
+              quantity: Math.abs(stockDiff),
+              unit: data.unit,
+              reason: 'Manual adjustment',
+              referenceType: 'manual_adjustment',
+              deviceId,
+              timestamp: new Date(),
+              syncedAt: new Date(),
+              version: existingInventory.version + 1
+            });
+          }
+
+          console.log(`Updated existing inventory with localId ${data.id}, serverId ${existingInventory.id}, version ${existingInventory.version + 1}`);
           return { success: true, serverId: existingInventory.id };
         } else {
           const [newInventory] = await db.insert(inventory).values({
@@ -342,8 +523,26 @@ async function handleInventorySync(action: string, userId: number, deviceId: str
             supplier: data.supplier,
             tanggalBeli: data.tanggalBeli ? new Date(data.tanggalBeli) : null,
             createdAt: new Date(data.createdAt),
-            updatedAt: new Date(data.updatedAt)
+            updatedAt: new Date(data.updatedAt),
+            version: 1,
+            lastModifiedBy: deviceId
           }).returning({ id: inventory.id });
+
+          // Create initial inventory event
+          await db.insert(inventoryEvents).values({
+            userId,
+            inventoryId: newInventory.id,
+            eventType: 'INITIAL',
+            quantity: data.stok,
+            unit: data.unit,
+            reason: 'Initial stock setup',
+            referenceType: 'manual_setup',
+            deviceId,
+            timestamp: new Date(),
+            syncedAt: new Date(),
+            version: 1
+          });
+
           console.log(`Created new inventory with localId ${data.id}, serverId ${newInventory.id}`);
           return { success: true, serverId: newInventory.id };
         }
@@ -443,7 +642,7 @@ app.get('/api/data/sync-status', async (c) => {
   });
 });
 
-const port = parseInt(process.env.PORT || '3001');
+const port = parseInt(process.env.PORT || '3002');
 
 console.log(`🚀 Server starting on port ${port}`);
 

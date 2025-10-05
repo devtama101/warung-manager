@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { db } from '../db/index';
-import { users, devices, pesanan, menu, inventory, syncLogs } from '../db/schema';
+import { users, devices, pesanan, menu, inventory, syncLogs, conflictLogs } from '../db/schema';
 import { eq, desc, and, gte, lte, sql } from 'drizzle-orm';
 import { authMiddleware } from '../middleware/auth';
 
@@ -44,7 +44,7 @@ admin.get('/users', async (c) => {
 
         return {
           id: user.id,
-          username: user.username,
+          email: user.email,
           warungNama: user.warungNama,
           warungAlamat: user.warungAlamat,
           createdAt: user.createdAt,
@@ -121,7 +121,7 @@ admin.get('/users/:id', async (c) => {
       data: {
         user: {
           id: user.id,
-          username: user.username,
+          email: user.email,
           warungNama: user.warungNama,
           warungAlamat: user.warungAlamat,
           createdAt: user.createdAt
@@ -148,13 +148,16 @@ admin.get('/users/:id', async (c) => {
 // Get revenue analytics
 admin.get('/revenue', async (c) => {
   try {
-    const timeRange = c.req.query('timeRange') || 'month'; // today, month, 3months, year
+    const timeRange = c.req.query('timeRange') || 'month'; // today, 7days, month, 3months, year
     const now = new Date();
     let startDate: Date;
 
     switch (timeRange) {
       case 'today':
         startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        break;
+      case '7days':
+        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6);
         break;
       case 'month':
         startDate = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -258,7 +261,7 @@ admin.get('/revenue', async (c) => {
       .slice(0, 20);
 
     // Get monthly revenue trend for 3months/year view
-    let monthlyRevenue = [];
+    let monthlyRevenue: Array<{month: string, revenue: number, orders: number}> = [];
     if (timeRange === '3months' || timeRange === 'year') {
       const months = timeRange === '3months' ? 3 : 12;
       monthlyRevenue = await db
@@ -331,17 +334,17 @@ admin.get('/stats', async (c) => {
       .from(inventory);
 
     // Get recent activity
-    const recentOrders = await db.query.pesanan.findMany({
-      orderBy: [desc(pesanan.tanggal)],
-      limit: 10,
-      with: {
-        user: {
-          columns: {
-            warungNama: true
-          }
-        }
-      }
-    });
+    const recentOrders = await db
+      .select({
+        id: pesanan.id,
+        tanggal: pesanan.tanggal,
+        total: pesanan.total,
+        status: pesanan.status,
+        userId: pesanan.userId
+      })
+      .from(pesanan)
+      .orderBy(desc(pesanan.tanggal))
+      .limit(10);
 
     // Get active devices (last 24 hours)
     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
@@ -370,7 +373,7 @@ admin.get('/stats', async (c) => {
           tanggal: order.tanggal,
           total: order.total,
           status: order.status,
-          warungNama: order.user?.warungNama || 'Unknown'
+          userId: order.userId
         }))
       }
     });
@@ -395,6 +398,165 @@ admin.get('/sync-logs', async (c) => {
   } catch (error) {
     console.error('Get sync logs error:', error);
     return c.json({ error: 'Failed to fetch sync logs' }, 500);
+  }
+});
+
+// Get all orders with filtering and pagination
+admin.get('/orders', async (c) => {
+  try {
+    const {
+      search = '',
+      status,
+      dateRange = '7days',
+      sortBy = 'tanggal',
+      sortOrder = 'desc',
+      page = 1,
+      limit = 20
+    } = c.req.query();
+
+    const pageNum = parseInt(page as string) || 1;
+    const limitNum = parseInt(limit as string) || 20;
+    const offset = (pageNum - 1) * limitNum;
+
+    // Calculate date range
+    const now = new Date();
+    let startDate: Date;
+
+    switch (dateRange) {
+      case 'today':
+        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        break;
+      case '7days':
+        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6);
+        break;
+      case '30days':
+        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 29);
+        break;
+      case 'all':
+      default:
+        startDate = new Date(0); // Beginning of time
+    }
+
+    // Build query conditions
+    const conditions = [
+      gte(pesanan.tanggal, startDate)
+    ];
+
+    if (status && status !== 'all') {
+      conditions.push(eq(pesanan.status, status));
+    }
+
+    // Get user info for display
+    const allPesanan = await db.query.pesanan.findMany({
+      where: conditions.length > 1 ? and(...conditions) : conditions[0],
+      orderBy: [
+        sortBy === 'tanggal' ? desc(pesanan.tanggal) :
+        sortBy === 'total' ? desc(pesanan.total) :
+        desc(pesanan.status)
+      ],
+      limit: limitNum,
+      offset: offset,
+      with: {
+        // We'll need to join with users to get user info
+      }
+    });
+
+    // Get total count for pagination
+    const [totalCount] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(pesanan)
+      .where(conditions.length > 1 ? and(...conditions) : conditions[0]);
+
+    // Get user information for each order
+    const ordersWithUserInfo = await Promise.all(
+      allPesanan.map(async (order) => {
+        const user = await db.query.users.findFirst({
+          where: eq(users.id, order.userId)
+        });
+
+        return {
+          ...order,
+          userName: user?.warungNama || 'Unknown',
+          deviceName: order.deviceId // We could enhance this with device info if needed
+        };
+      })
+    );
+
+    // Apply search filter if provided (done in code for simplicity)
+    let filteredOrders = ordersWithUserInfo;
+    if (search) {
+      const searchLower = (search as string).toLowerCase();
+      filteredOrders = ordersWithUserInfo.filter(order =>
+        (order.nomorMeja && order.nomorMeja.toLowerCase().includes(searchLower)) ||
+        (order.items as any[]).some((item: any) =>
+          item.menuNama && item.menuNama.toLowerCase().includes(searchLower)
+        ) ||
+        (order.userName && order.userName.toLowerCase().includes(searchLower))
+      );
+    }
+
+    // Apply client-side sorting for complex cases
+    if (sortBy === 'total' || sortBy === 'status') {
+      filteredOrders.sort((a, b) => {
+        let comparison = 0;
+        if (sortBy === 'total') {
+          comparison = Number(a.total) - Number(b.total);
+        } else if (sortBy === 'status') {
+          comparison = a.status.localeCompare(b.status);
+        }
+        return sortOrder === 'asc' ? comparison : -comparison;
+      });
+    }
+
+    // Apply pagination after filtering
+    const paginatedOrders = filteredOrders.slice(offset, offset + limitNum);
+
+    return c.json({
+      success: true,
+      data: {
+        orders: paginatedOrders,
+        total: filteredOrders.length,
+        page: pageNum,
+        limit: limitNum
+      }
+    });
+  } catch (error) {
+    console.error('Get orders error:', error);
+    return c.json({ error: 'Failed to fetch orders' }, 500);
+  }
+});
+
+// Update order status
+admin.patch('/orders/:id/status', async (c) => {
+  try {
+    const orderId = parseInt(c.req.param('id'));
+    const { status } = await c.req.json();
+
+    if (!['pending', 'completed', 'cancelled'].includes(status)) {
+      return c.json({ error: 'Invalid status' }, 400);
+    }
+
+    const [updatedOrder] = await db
+      .update(pesanan)
+      .set({
+        status: status as any,
+        updatedAt: new Date()
+      })
+      .where(eq(pesanan.id, orderId))
+      .returning();
+
+    if (!updatedOrder) {
+      return c.json({ error: 'Order not found' }, 404);
+    }
+
+    return c.json({
+      success: true,
+      message: `Order status updated to ${status}`,
+      data: updatedOrder
+    });
+  } catch (error) {
+    console.error('Update order status error:', error);
+    return c.json({ error: 'Failed to update order status' }, 500);
   }
 });
 
@@ -455,6 +617,180 @@ admin.delete('/synced-data/:table/:id', async (c) => {
   } catch (error) {
     console.error('Delete synced record error:', error);
     return c.json({ error: 'Failed to delete record' }, 500);
+  }
+});
+
+// Conflict Resolution Endpoints
+
+// Get all conflict logs
+admin.get('/conflicts', async (c) => {
+  try {
+    const userId = c.get('userId') as number;
+
+    const conflicts = await db.query.conflictLogs.findMany({
+      orderBy: [desc(conflictLogs.timestamp)],
+      limit: 100
+    });
+
+    return c.json({
+      success: true,
+      conflicts
+    });
+  } catch (error) {
+    console.error('Get conflicts error:', error);
+    return c.json({ error: 'Failed to fetch conflicts' }, 500);
+  }
+});
+
+// Get conflicts by user
+admin.get('/conflicts/user/:userId', async (c) => {
+  try {
+    const targetUserId = parseInt(c.req.param('userId'));
+
+    const conflicts = await db.query.conflictLogs.findMany({
+      where: eq(conflictLogs.userId, targetUserId),
+      orderBy: [desc(conflictLogs.timestamp)],
+      limit: 100
+    });
+
+    return c.json({
+      success: true,
+      conflicts
+    });
+  } catch (error) {
+    console.error('Get user conflicts error:', error);
+    return c.json({ error: 'Failed to fetch user conflicts' }, 500);
+  }
+});
+
+// Resolve a conflict
+admin.post('/conflicts/:conflictId/resolve', async (c) => {
+  try {
+    const conflictId = parseInt(c.req.param('conflictId'));
+    const { resolution, resolvedData, notes } = await c.req.json();
+    const resolvedBy = c.get('userId') as number;
+
+    if (!resolution || !['SERVER_WINS', 'CLIENT_WINS', 'MANUAL_MERGE'].includes(resolution)) {
+      return c.json({ error: 'Invalid resolution type' }, 400);
+    }
+
+    // Get the conflict
+    const conflict = await db.query.conflictLogs.findFirst({
+      where: eq(conflictLogs.id, conflictId)
+    });
+
+    if (!conflict) {
+      return c.json({ error: 'Conflict not found' }, 404);
+    }
+
+    // Update the conflict log
+    await db.update(conflictLogs)
+      .set({
+        resolution,
+        resolvedData: resolvedData || (resolution === 'SERVER_WINS' ? conflict.serverData : conflict.clientData),
+        resolvedBy: resolvedBy.toString(),
+        resolvedAt: new Date(),
+        notes: notes || `Resolved by admin with ${resolution} strategy`
+      })
+      .where(eq(conflictLogs.id, conflictId));
+
+    // Apply the resolution to the actual entity if needed
+    if (resolution === 'SERVER_WINS' || resolution === 'CLIENT_WINS') {
+      const winningData = resolution === 'SERVER_WINS' ? conflict.serverData : conflict.clientData;
+
+      switch (conflict.entityType) {
+        case 'pesanan':
+          await db.update(pesanan)
+            .set({
+              ...winningData,
+              version: sql`${pesanan.version} + 1`,
+              lastModifiedBy: 'admin_resolution'
+            })
+            .where(eq(pesanan.id, conflict.entityId));
+          break;
+
+        case 'menu':
+          await db.update(menu)
+            .set({
+              ...winningData,
+              version: sql`${menu.version} + 1`,
+              lastModifiedBy: 'admin_resolution'
+            })
+            .where(eq(menu.id, conflict.entityId));
+          break;
+
+        case 'inventory':
+          await db.update(inventory)
+            .set({
+              ...winningData,
+              version: sql`${inventory.version} + 1`,
+              lastModifiedBy: 'admin_resolution'
+            })
+            .where(eq(inventory.id, conflict.entityId));
+          break;
+      }
+    }
+
+    return c.json({
+      success: true,
+      message: 'Conflict resolved successfully'
+    });
+  } catch (error) {
+    console.error('Resolve conflict error:', error);
+    return c.json({ error: 'Failed to resolve conflict' }, 500);
+  }
+});
+
+// Get conflict statistics
+admin.get('/conflicts/stats', async (c) => {
+  try {
+    const userId = c.get('userId') as number;
+
+    const [totalConflicts] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(conflictLogs);
+
+    const [pendingConflicts] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(conflictLogs)
+      .where(eq(conflictLogs.resolution, 'PENDING'));
+
+    const [resolvedConflicts] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(conflictLogs)
+      .where(sql`${conflictLogs.resolution} != 'PENDING'`);
+
+    // Conflict types breakdown
+    const conflictTypes = await db
+      .select({
+        type: conflictLogs.conflictType,
+        count: sql<number>`count(*)`
+      })
+      .from(conflictLogs)
+      .groupBy(conflictLogs.conflictType);
+
+    // Resolution breakdown
+    const resolutions = await db
+      .select({
+        resolution: conflictLogs.resolution,
+        count: sql<number>`count(*)`
+      })
+      .from(conflictLogs)
+      .groupBy(conflictLogs.resolution);
+
+    return c.json({
+      success: true,
+      stats: {
+        total: totalConflicts.count,
+        pending: pendingConflicts.count,
+        resolved: resolvedConflicts.count,
+        byType: conflictTypes,
+        byResolution: resolutions
+      }
+    });
+  } catch (error) {
+    console.error('Get conflict stats error:', error);
+    return c.json({ error: 'Failed to fetch conflict statistics' }, 500);
   }
 });
 

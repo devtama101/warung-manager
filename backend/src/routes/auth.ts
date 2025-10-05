@@ -131,6 +131,7 @@ auth.post('/login', async (c) => {
         {
           userId: admin.id,
           email: admin.email,
+          warungNama: admin.warungNama,
           role: 'admin',
           warungId: admin.id
         },

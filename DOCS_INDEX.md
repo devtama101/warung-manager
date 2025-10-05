@@ -73,11 +73,22 @@ Complete guide to all documentation files in this project.
 
 ### Product Requirements
 
-**[WARUNG_POS_PRD.md](./WARUNG_POS_PRD.md)** - Product Requirements Document
-- Feature specifications
-- User stories
-- Technical requirements
+**[PRD.md](./PRD.md)** - Product Requirements Document (v3.0)
+- Feature specifications with enterprise architecture
+- User stories and technical requirements
 - Development roadmap
+- **NEW**: Optimistic locking & conflict resolution
+- **NEW**: Event sourcing for inventory
+- **NEW**: Multi-device safety features
+
+### Database Migration
+
+**[MIGRATION_GUIDE.md](./MIGRATION_GUIDE.md)** - Database migration guide (v3.0)
+- Migrate existing installations to enterprise architecture
+- Automated and manual migration options
+- Schema changes and new tables
+- Verification and troubleshooting
+- Rollback procedures
 
 ---
 
@@ -89,12 +100,14 @@ Complete guide to all documentation files in this project.
 |------|----------|---------|
 | Install and run the app | [QUICKSTART.md](./QUICKSTART.md) | Option 1 or 2 |
 | Setup database | [SETUP.md](./SETUP.md) | Database Setup |
+| **Migrate to v3.0** | **[MIGRATION_GUIDE.md](./MIGRATION_GUIDE.md)** | **Migration Process** |
 | Add new employee | [ADMIN_GUIDE.md](./ADMIN_GUIDE.md) | Perangkat |
 | Create order | [EMPLOYEE_GUIDE.md](./EMPLOYEE_GUIDE.md) | Buat Pesanan Baru |
 | Manage inventory | [ADMIN_GUIDE.md](./ADMIN_GUIDE.md) | Bahan Baku |
 | Generate daily report | [EMPLOYEE_GUIDE.md](./EMPLOYEE_GUIDE.md) | Laporan |
 | Review synced data | [ADMIN_GUIDE.md](./ADMIN_GUIDE.md) | Sinkronisasi |
 | API endpoints | [ADMIN_INTEGRATION.md](./ADMIN_INTEGRATION.md) | Backend API Endpoints |
+| Resolve conflicts | [ADMIN_GUIDE.md](./ADMIN_GUIDE.md) | **NEW: Conflict Resolution** |
 
 ### Troubleshooting
 
@@ -117,7 +130,8 @@ warung-manager/
 ├── ADMIN_GUIDE.md           # Admin user guide (ID)
 ├── EMPLOYEE_GUIDE.md        # Employee user guide (ID)
 ├── ADMIN_INTEGRATION.md     # Backend API docs
-├── WARUNG_POS_PRD.md       # Product requirements
+├── PRD.md                   # Product requirements (v3.0)
+├── MIGRATION_GUIDE.md       # Database migration guide (v3.0)
 └── DOCS_INDEX.md            # This file
 ```
 
@@ -143,14 +157,17 @@ When updating docs:
 
 ## 🔄 Last Updated
 
-**Date:** 2025-10-04
+**Date:** 2025-10-05
 
 **Latest Changes:**
-- Added Sync Management documentation
-- Separated admin and employee guides
-- Updated authentication flow
-- Added daily reports generation guide
-- Updated database tables overview
+- **MAJOR UPDATE**: Enterprise-grade architecture v3.0
+- Added optimistic locking and conflict resolution system
+- Added event sourcing for inventory management
+- Updated PRD.md with new architecture features
+- Updated README.md with advanced features
+- Added comprehensive conflict resolution documentation
+- Updated API endpoints with conflict resolution routes
+- Added migration information for existing databases
 
 ---
 

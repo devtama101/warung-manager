@@ -14,6 +14,8 @@ export interface Pesanan {
   updatedAt: Date;
   syncStatus: 'pending' | 'synced' | 'conflict';
   deviceId: string;
+  version?: number; // For optimistic locking
+  lastModifiedBy?: string; // Device ID that last modified this record
 }
 
 export interface PesananItem {
@@ -40,6 +42,8 @@ export interface Menu {
   updatedAt: Date;
   syncStatus: 'pending' | 'synced' | 'conflict';
   deviceId: string;
+  version?: number; // For optimistic locking
+  lastModifiedBy?: string; // Device ID that last modified this record
 }
 
 export interface MenuIngredient {
@@ -64,6 +68,8 @@ export interface Inventory {
   updatedAt: Date;
   syncStatus: 'pending' | 'synced' | 'conflict';
   deviceId: string;
+  version?: number; // For optimistic locking
+  lastModifiedBy?: string; // Device ID that last modified this record
 }
 
 export interface DailyReport {
@@ -78,6 +84,8 @@ export interface DailyReport {
   createdAt: Date;
   syncStatus: 'pending' | 'synced' | 'conflict';
   deviceId: string;
+  version?: number; // For optimistic locking
+  lastModifiedBy?: string; // Device ID that last modified this record
 }
 
 export interface SyncQueue {
