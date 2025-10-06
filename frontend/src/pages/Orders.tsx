@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter } from '@/components/ui/alert-dialog';
-import { getTodayOrders, completeOrder, cancelOrder, Pesanan } from '@/lib/orders';
+import { getTodayOrders, completeOrder, cancelOrder, Order } from '@/lib/orders';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
 
 export function Orders() {
@@ -55,14 +55,14 @@ export function Orders() {
 
   const handleCompleteOrder = (orderId: number) => {
     showConfirm(
-      'Selesaikan Pesanan',
+      'Selesaikan Order',
       'Tandai pesanan ini sebagai selesai?',
       async () => {
         try {
           await completeOrder(orderId);
           await loadOrders();
           setConfirmOpen(false);
-          showAlert('Berhasil!', 'Pesanan telah diselesaikan', 'success');
+          showAlert('Berhasil!', 'Order telah diselesaikan', 'success');
         } catch (error) {
           setConfirmOpen(false);
           showAlert('Gagal', 'Gagal menyelesaikan pesanan: ' + (error instanceof Error ? error.message : 'Unknown error'), 'error');
@@ -75,14 +75,14 @@ export function Orders() {
 
   const handleCancelOrder = (orderId: number) => {
     showConfirm(
-      'Batalkan Pesanan',
+      'Batalkan Order',
       'Apakah Anda yakin ingin membatalkan pesanan ini?',
       async () => {
         try {
           await cancelOrder(orderId);
           await loadOrders();
           setConfirmOpen(false);
-          showAlert('Berhasil!', 'Pesanan telah dibatalkan', 'success');
+          showAlert('Berhasil!', 'Order telah dibatalkan', 'success');
         } catch (error) {
           setConfirmOpen(false);
           showAlert('Gagal', 'Gagal membatalkan pesanan', 'error');
@@ -115,13 +115,13 @@ export function Orders() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Pesanan</h1>
+          <h1 className="text-3xl font-bold text-gray-900">Order</h1>
           <p className="text-gray-600 mt-1">Kelola pesanan pelanggan</p>
         </div>
         <Link to="/orders/new">
           <Button size="lg">
             <Plus className="mr-2 h-5 w-5" />
-            Buat Pesanan
+            Buat Order
           </Button>
         </Link>
       </div>
@@ -160,7 +160,7 @@ export function Orders() {
             <Link to="/orders/new">
               <Button className="mt-4">
                 <Plus className="mr-2 h-4 w-4" />
-                Buat Pesanan Pertama
+                Buat Order Pertama
               </Button>
             </Link>
           </CardContent>
@@ -173,11 +173,11 @@ export function Orders() {
                 <div className="flex items-start justify-between">
                   <div>
                     <CardTitle className="text-lg">
-                      Pesanan #{order.id}
-                      {order.nomorMeja && ` - Meja ${order.nomorMeja}`}
+                      Order #{order.id}
+                      {order.tableNumber && ` - Meja ${order.tableNumber}`}
                     </CardTitle>
                     <p className="text-sm text-gray-600 mt-1">
-                      {formatDateTime(order.tanggal)}
+                      {formatDateTime(order.orderDate)}
                     </p>
                   </div>
                   {getStatusBadge(order.status)}
@@ -188,9 +188,9 @@ export function Orders() {
                   {order.items.map((item: any, idx: number) => (
                     <div key={idx} className="flex justify-between text-sm">
                       <span>
-                        {item.qty}x {item.menuNama}
-                        {item.catatan && (
-                          <span className="text-gray-500 italic ml-2">({item.catatan})</span>
+                        {item.quantity}x {item.menuName}
+                        {item.notes && (
+                          <span className="text-gray-500 italic ml-2">({item.notes})</span>
                         )}
                       </span>
                       <span className="font-medium">{formatCurrency(item.subtotal)}</span>

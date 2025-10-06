@@ -12,21 +12,21 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 interface OrderItem {
   menuId: number;
-  menuNama: string;
-  qty: number;
-  harga: number;
+  menuName: string;
+  quantity: number;
+  price: number;
   subtotal: number;
-  catatan?: string;
+  notes?: string;
 }
 
 interface Order {
   id: number;
   localId: number;
-  nomorMeja: string;
+  tableNumber: string;
   items: OrderItem[];
   total: number;
   status: 'pending' | 'completed' | 'cancelled';
-  tanggal: Date;
+  orderDate: Date;
   createdAt: Date;
   updatedAt: Date;
   userId: number;
@@ -121,29 +121,29 @@ export function OrderMonitoring() {
           startDate = new Date(0); // Beginning of time
       }
 
-      let localOrders = await db.default.pesanan
-        .where('tanggal')
+      let localOrders = await (db as any).orders
+        .where('orderDate')
         .between(startDate, now, true, true)
         .toArray();
 
       // Apply filters
       if (filters.search) {
-        localOrders = localOrders.filter(order =>
-          order.nomorMeja?.toLowerCase().includes(filters.search.toLowerCase()) ||
-          order.items.some(item => item.menuNama.toLowerCase().includes(filters.search.toLowerCase()))
+        localOrders = localOrders.filter((order: any) =>
+          order.tableNumber?.toLowerCase().includes(filters.search.toLowerCase()) ||
+          order.items.some((item: any) => item.menuName.toLowerCase().includes(filters.search.toLowerCase()))
         );
       }
 
       if (filters.status !== 'all') {
-        localOrders = localOrders.filter(order => order.status === filters.status);
+        localOrders = localOrders.filter((order: any) => order.status === filters.status);
       }
 
       // Sort
-      localOrders.sort((a, b) => {
+      localOrders.sort((a: any, b: any) => {
         let comparison = 0;
         switch (filters.sortBy) {
           case 'tanggal':
-            comparison = new Date(a.tanggal).getTime() - new Date(b.tanggal).getTime();
+            comparison = new Date(a.orderDate).getTime() - new Date(b.orderDate).getTime();
             break;
           case 'total':
             comparison = a.total - b.total;
@@ -245,7 +245,7 @@ export function OrderMonitoring() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Monitoring Pesanan</h1>
+          <h1 className="text-3xl font-bold text-gray-900">Monitoring Order</h1>
           <p className="text-gray-600 mt-1">Pantau semua pesanan dari berbagai warung</p>
         </div>
       </div>
@@ -254,7 +254,7 @@ export function OrderMonitoring() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Pesanan</CardTitle>
+            <CardTitle className="text-sm font-medium">Total Order</CardTitle>
             <User className="h-4 w-4 text-gray-600" />
           </CardHeader>
           <CardContent>
@@ -314,7 +314,7 @@ export function OrderMonitoring() {
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
-              <label className="text-sm font-medium mb-2 block">Cari Pesanan</label>
+              <label className="text-sm font-medium mb-2 block">Cari Order</label>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
@@ -377,7 +377,7 @@ export function OrderMonitoring() {
       {/* Orders Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Daftar Pesanan</CardTitle>
+          <CardTitle>Daftar Order</CardTitle>
         </CardHeader>
         <CardContent>
           {loading ? (
@@ -408,13 +408,13 @@ export function OrderMonitoring() {
                       <tr key={order.id} className="border-b hover:bg-gray-50">
                         <td className="py-3 px-4 font-medium">#{order.localId || order.id}</td>
                         <td className="py-3 px-4 text-sm text-gray-600">
-                          {format(new Date(order.tanggal), 'dd/MM/yyyy HH:mm')}
+                          {format(new Date(order.orderDate), 'dd/MM/yyyy HH:mm')}
                         </td>
-                        <td className="py-3 px-4">{order.nomorMeja || '-'}</td>
+                        <td className="py-3 px-4">{order.tableNumber || '-'}</td>
                         <td className="py-3 px-4">
                           <div className="max-w-xs">
                             <p className="text-sm truncate">
-                              {order.items.slice(0, 2).map(item => `${item.menuNama} (${item.qty})`).join(', ')}
+                              {order.items.slice(0, 2).map(item => `${item.menuName} (${item.quantity})`).join(', ')}
                               {order.items.length > 2 && ` +${order.items.length - 2} lainnya`}
                             </p>
                           </div>
@@ -498,7 +498,7 @@ export function OrderMonitoring() {
           <div className="bg-white rounded-lg max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-bold">Detail Pesanan #{selectedOrder.localId || selectedOrder.id}</h2>
+                <h2 className="text-xl font-bold">Detail Order #{selectedOrder.localId || selectedOrder.id}</h2>
                 <Button
                   variant="outline"
                   size="sm"
@@ -512,11 +512,11 @@ export function OrderMonitoring() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <p className="text-sm text-gray-600">Tanggal</p>
-                    <p className="font-medium">{format(new Date(selectedOrder.tanggal), 'dd/MM/yyyy HH:mm')}</p>
+                    <p className="font-medium">{format(new Date(selectedOrder.orderDate), 'dd/MM/yyyy HH:mm')}</p>
                   </div>
                   <div>
                     <p className="text-sm text-gray-600">Meja</p>
-                    <p className="font-medium">{selectedOrder.nomorMeja || '-'}</p>
+                    <p className="font-medium">{selectedOrder.tableNumber || '-'}</p>
                   </div>
                   <div>
                     <p className="text-sm text-gray-600">Status</p>
@@ -534,15 +534,15 @@ export function OrderMonitoring() {
                 </div>
 
                 <div>
-                  <h3 className="font-bold mb-2">Item Pesanan</h3>
+                  <h3 className="font-bold mb-2">Item Order</h3>
                   <div className="space-y-2">
                     {selectedOrder.items.map((item, index) => (
                       <div key={index} className="flex justify-between items-center p-2 bg-gray-50 rounded">
                         <div>
-                          <p className="font-medium">{item.menuNama}</p>
-                          <p className="text-sm text-gray-600">{item.qty} x {formatCurrency(item.harga)}</p>
-                          {item.catatan && (
-                            <p className="text-sm text-gray-500 italic">Catatan: {item.catatan}</p>
+                          <p className="font-medium">{item.menuName}</p>
+                          <p className="text-sm text-gray-600">{item.quantity} x {formatCurrency(item.price)}</p>
+                          {item.notes && (
+                            <p className="text-sm text-gray-500 italic">Catatan: {item.notes}</p>
                           )}
                         </div>
                         <p className="font-bold">{formatCurrency(item.subtotal)}</p>

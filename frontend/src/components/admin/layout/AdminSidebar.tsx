@@ -11,7 +11,7 @@ interface AdminSidebarProps {
 const menuItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/admin' },
   { icon: TrendingUp, label: 'Pendapatan', path: '/admin/revenue' },
-  { icon: ClipboardList, label: 'Monitoring Pesanan', path: '/admin/orders' },
+  { icon: ClipboardList, label: 'Monitoring Order', path: '/admin/orders' },
   { icon: ChefHat, label: 'Menu', path: '/admin/menu' },
   { icon: Package, label: 'Bahan Baku', path: '/admin/inventory' },
   { icon: Smartphone, label: 'Perangkat', path: '/admin/devices' },
@@ -51,7 +51,7 @@ export function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
 
           {/* Logo/brand for desktop */}
           <div className="hidden lg:block p-6 border-b border-gray-800">
-            <h1 className="text-xl font-bold text-blue-400">{user?.warungNama || 'Warung POS'}</h1>
+            <h1 className="text-xl font-bold text-blue-400">{user?.businessName || 'Warung Manager'}</h1>
             <p className="text-sm text-gray-400 mt-1">Admin • {user?.email || ''}</p>
           </div>
 

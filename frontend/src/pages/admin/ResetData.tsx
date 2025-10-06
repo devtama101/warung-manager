@@ -134,9 +134,9 @@ export function ResetData() {
         </CardHeader>
         <CardContent>
           <div className="space-y-2">
-            <p><strong>Warung:</strong> {user?.warungNama}</p>
+            <p><strong>Warung:</strong> {user?.businessName}</p>
             <p><strong>Email:</strong> {user?.email}</p>
-            <p><strong>User ID:</strong> {user?.id}</p>
+            <p><strong>User ID:</strong> {user?.id || 'N/A'}</p>
           </div>
         </CardContent>
       </Card>
@@ -202,7 +202,7 @@ export function ResetData() {
           <CardHeader>
             <CardTitle className="flex items-center text-orange-800">
               <Trash2 className="h-5 w-5 mr-2" />
-              Reset Pesanan Saja
+              Reset Order Saja
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -233,12 +233,12 @@ export function ResetData() {
                 ) : confirming === 'orders' ? (
                   <>
                     <AlertTriangle className="h-4 w-4 mr-2" />
-                    KONFIRMASI: Hapus Semua Pesanan
+                    KONFIRMASI: Hapus Semua Order
                   </>
                 ) : (
                   <>
                     <Trash2 className="h-4 w-4 mr-2" />
-                    Hapus Pesanan Saja
+                    Hapus Order Saja
                   </>
                 )}
               </Button>
@@ -309,7 +309,7 @@ export function ResetData() {
               <strong>Jika database sudah direset server:</strong> Gunakan tombol "Clear Local Data Only" (biru) untuk membersihkan cache lokal.
             </li>
             <li>
-              <strong>Reset penuh:</strong> Gunakan "Hapus Pesanan Saja" atau "Hapus Semua Data" untuk reset di server + lokal.
+              <strong>Reset penuh:</strong> Gunakan "Hapus Order Saja" atau "Hapus Semua Data" untuk reset di server + lokal.
             </li>
             <li>
               <strong>Klik tombol sekali:</strong> Untuk konfirmasi pertama (tombol akan berubah warna).

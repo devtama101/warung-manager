@@ -8,8 +8,8 @@ interface WarungUser {
   id: number;
   email: string;
   name?: string;
-  warungNama: string;
-  warungAlamat?: string;
+  businessName: string;
+  businessAddress?: string;
 }
 
 interface WarungAuthContextType {
@@ -25,8 +25,8 @@ interface WarungAuthContextType {
 interface RegisterData {
   email: string;
   password: string;
-  warungNama: string;
-  warungAlamat?: string;
+  businessName: string;
+  businessAddress?: string;
 }
 
 const WarungAuthContext = createContext<WarungAuthContextType | undefined>(undefined);
@@ -91,8 +91,8 @@ export function WarungAuthProvider({ children }: { children: ReactNode }) {
           await db.settings.update(settings[0].id!, {
             userId: user.id.toString(),
             authToken: token,
-            warungNama: user.warungNama,
-            warungAlamat: user.warungAlamat || undefined,
+            businessName: user.businessName,
+            businessAddress: user.businessAddress || undefined,
             updatedAt: new Date()
           });
         }
@@ -109,7 +109,7 @@ export function WarungAuthProvider({ children }: { children: ReactNode }) {
 
   const register = async (data: RegisterData): Promise<boolean> => {
     try {
-      console.log('Attempting registration with:', { email: data.email, warungNama: data.warungNama });
+      console.log('Attempting registration with:', { email: data.email, businessName: data.businessName });
       console.log('API URL:', `${API_URL}/api/auth/register`);
 
       const response = await axios.post(`${API_URL}/api/auth/register`, data);
@@ -135,8 +135,8 @@ export function WarungAuthProvider({ children }: { children: ReactNode }) {
           await db.settings.update(settings[0].id!, {
             userId: user.id.toString(),
             authToken: token,
-            warungNama: user.warungNama,
-            warungAlamat: user.warungAlamat || undefined,
+            businessName: user.businessName,
+            businessAddress: user.businessAddress || undefined,
             updatedAt: new Date()
           });
         }

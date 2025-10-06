@@ -25,6 +25,7 @@ import { ResetData } from './pages/admin/ResetData';
 import { DatabaseMonitor } from './components/debug/DatabaseMonitor';
 import { WarungLogin } from './pages/WarungLogin';
 import { WarungRegister } from './pages/WarungRegister';
+import LandingPage from './pages/LandingPage';
 import { ProtectedRoute } from './components/admin/ProtectedRoute';
 import { ProtectedWarungRoute } from './components/ProtectedWarungRoute';
 import { AuthProvider } from './contexts/AuthContext';
@@ -68,13 +69,16 @@ function App() {
       <AuthProvider>
         <BrowserRouter>
           <Routes>
+            {/* Landing Page Route (Public) */}
+            <Route path="/" element={<LandingPage />} />
+
             {/* Warung Login/Register Routes (Public) */}
-            <Route path="/login" element={<WarungLogin />} />
-            <Route path="/register" element={<WarungRegister />} />
+            <Route path="/warung/login" element={<WarungLogin />} />
+            <Route path="/warung/register" element={<WarungRegister />} />
 
             {/* User Dashboard Routes (Protected by Warung Auth) */}
             <Route
-              path="/"
+              path="/dashboard"
               element={
                 <ProtectedWarungRoute>
                   <Layout />

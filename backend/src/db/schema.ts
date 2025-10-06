@@ -4,25 +4,25 @@ import { pgTable, serial, text, integer, timestamp, boolean, json, decimal, pgEn
 
 export const roleEnum = pgEnum('role', ['admin', 'employee']);
 export const statusEnum = pgEnum('status', ['pending', 'completed', 'cancelled']);
-export const kategoriMenuEnum = pgEnum('kategori_menu', ['makanan', 'minuman', 'snack']);
-export const kategoriInventoryEnum = pgEnum('kategori_inventory', ['bahan_baku', 'kemasan', 'lainnya']);
+export const menuCategoryEnum = pgEnum('menu_category', ['food', 'beverage', 'snack']);
+export const inventoryCategoryEnum = pgEnum('inventory_category', ['raw_material', 'packaging', 'other']);
 export const syncActionEnum = pgEnum('sync_action', ['CREATE', 'UPDATE', 'DELETE']);
 
 // ============= TYPES =============
 
-export type PesananItem = {
+export type OrderItem = {
   menuId: number;
-  menuNama: string;
-  qty: number;
-  harga: number;
+  menuName: string;
+  quantity: number;
+  price: number;
   subtotal: number;
-  catatan?: string;
+  notes?: string;
 };
 
 export type MenuIngredient = {
   inventoryId: number;
-  inventoryNama: string;
-  qty: number;
+  inventoryName: string;
+  quantity: number;
   unit: string;
 };
 
@@ -34,8 +34,8 @@ export const users = pgTable('users', {
   email: text('email').notNull().unique(),
   password: text('password').notNull(), // Hashed
   role: roleEnum('role').notNull().default('admin'),
-  warungNama: text('warung_nama').notNull(),
-  warungAlamat: text('warung_alamat'),
+  businessName: text('business_name').notNull(),
+  businessAddress: text('business_address'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull()
 });
@@ -65,32 +65,32 @@ export const devices = pgTable('devices', {
   createdAt: timestamp('created_at').defaultNow().notNull()
 });
 
-export const pesanan = pgTable('pesanan', {
+export const orders = pgTable('orders', {
   id: serial('id').primaryKey(),
   userId: integer('user_id').references(() => users.id).notNull(),
   deviceId: text('device_id').references(() => devices.deviceId).notNull(),
   localId: integer('local_id'), // Original ID from client
-  nomorMeja: text('nomor_meja'),
-  items: json('items').$type<PesananItem[]>().notNull(),
+  tableNumber: text('table_number'),
+  items: json('items').$type<OrderItem[]>().notNull(),
   total: decimal('total', { precision: 10, scale: 2 }).notNull(),
   status: statusEnum('status').notNull().default('pending'),
-  tanggal: timestamp('tanggal').notNull(),
+  orderDate: timestamp('order_date').notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
   version: integer('version').default(1).notNull(),
   lastModifiedBy: text('last_modified_by').notNull()
 });
 
-export const menu = pgTable('menu', {
+export const menuItems = pgTable('menu_items', {
   id: serial('id').primaryKey(),
   userId: integer('user_id').references(() => users.id).notNull(),
   deviceId: text('device_id').references(() => devices.deviceId).notNull(),
   localId: integer('local_id'),
-  nama: text('nama').notNull(),
-  kategori: kategoriMenuEnum('kategori').notNull(),
-  harga: decimal('harga', { precision: 10, scale: 2 }).notNull(),
-  tersedia: boolean('tersedia').default(true).notNull(),
-  gambar: text('gambar'),
+  name: text('name').notNull(),
+  category: menuCategoryEnum('category').notNull(),
+  price: decimal('price', { precision: 10, scale: 2 }).notNull(),
+  available: boolean('available').default(true).notNull(),
+  image: text('image'),
   ingredients: json('ingredients').$type<MenuIngredient[]>(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
@@ -98,19 +98,19 @@ export const menu = pgTable('menu', {
   lastModifiedBy: text('last_modified_by').notNull()
 });
 
-export const inventory = pgTable('inventory', {
+export const inventoryItems = pgTable('inventory_items', {
   id: serial('id').primaryKey(),
   userId: integer('user_id').references(() => users.id).notNull(),
   deviceId: text('device_id').references(() => devices.deviceId).notNull(),
   localId: integer('local_id'),
-  nama: text('nama').notNull(),
-  kategori: kategoriInventoryEnum('kategori').notNull(),
-  stok: decimal('stok', { precision: 10, scale: 3 }).notNull(),
+  name: text('name').notNull(),
+  category: inventoryCategoryEnum('category').notNull(),
+  stock: decimal('stock', { precision: 10, scale: 3 }).notNull(),
   unit: text('unit').notNull(),
-  stokMinimum: decimal('stok_minimum', { precision: 10, scale: 3 }).notNull(),
-  hargaBeli: decimal('harga_beli', { precision: 10, scale: 2 }).notNull(),
+  minimumStock: decimal('minimum_stock', { precision: 10, scale: 3 }).notNull(),
+  purchasePrice: decimal('purchase_price', { precision: 10, scale: 2 }).notNull(),
   supplier: text('supplier'),
-  tanggalBeli: timestamp('tanggal_beli'),
+  purchaseDate: timestamp('purchase_date'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
   version: integer('version').default(1).notNull(),
@@ -121,12 +121,12 @@ export const dailyReports = pgTable('daily_reports', {
   id: serial('id').primaryKey(),
   userId: integer('user_id').references(() => users.id).notNull(),
   deviceId: text('device_id').references(() => devices.deviceId).notNull(),
-  tanggal: timestamp('tanggal').notNull(),
-  totalPenjualan: decimal('total_penjualan', { precision: 12, scale: 2 }).notNull(),
-  totalPesanan: integer('total_pesanan').notNull(),
-  totalModal: decimal('total_modal', { precision: 12, scale: 2 }).notNull(),
-  keuntungan: decimal('keuntungan', { precision: 12, scale: 2 }).notNull(),
-  itemTerlaris: text('item_terlaris'),
+  reportDate: timestamp('report_date').notNull(),
+  totalSales: decimal('total_sales', { precision: 12, scale: 2 }).notNull(),
+  totalOrders: integer('total_orders').notNull(),
+  totalCost: decimal('total_cost', { precision: 12, scale: 2 }).notNull(),
+  profit: decimal('profit', { precision: 12, scale: 2 }).notNull(),
+  bestSellingItem: text('best_selling_item'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   version: integer('version').default(1).notNull(),
   lastModifiedBy: text('last_modified_by').notNull()
@@ -149,12 +149,12 @@ export const syncLogs = pgTable('sync_logs', {
 export const inventoryEvents = pgTable('inventory_events', {
   id: serial('id').primaryKey(),
   userId: integer('user_id').references(() => users.id).notNull(),
-  inventoryId: integer('inventory_id').references(() => inventory.id).notNull(),
+  inventoryId: integer('inventory_id').references(() => inventoryItems.id).notNull(),
   eventType: text('event_type').notNull(), // 'STOCK_IN', 'STOCK_OUT', 'ADJUSTMENT', 'INITIAL'
   quantity: decimal('quantity', { precision: 10, scale: 3 }).notNull(),
   unit: text('unit').notNull(),
   reason: text('reason'), // e.g., 'Purchase', 'Sale', 'Waste', 'Adjustment'
-  referenceType: text('reference_type'), // 'pesanan', 'purchase', 'manual_adjustment'
+  referenceType: text('reference_type'), // 'orders', 'purchase', 'manual_adjustment'
   referenceId: integer('reference_id'), // ID of related record
   deviceId: text('device_id').references(() => devices.deviceId).notNull(),
   timestamp: timestamp('timestamp').defaultNow().notNull(),
@@ -166,7 +166,7 @@ export const inventoryEvents = pgTable('inventory_events', {
 export const inventorySnapshots = pgTable('inventory_snapshots', {
   id: serial('id').primaryKey(),
   userId: integer('user_id').references(() => users.id).notNull(),
-  inventoryId: integer('inventory_id').references(() => inventory.id).notNull(),
+  inventoryId: integer('inventory_id').references(() => inventoryItems.id).notNull(),
   stockLevel: decimal('stock_level', { precision: 10, scale: 3 }).notNull(),
   unit: text('unit').notNull(),
   timestamp: timestamp('timestamp').defaultNow().notNull(),
@@ -180,7 +180,7 @@ export const syncQueueV2 = pgTable('sync_queue_v2', {
   id: serial('id').primaryKey(),
   userId: integer('user_id').references(() => users.id).notNull(),
   deviceId: text('device_id').references(() => devices.deviceId).notNull(),
-  entityType: text('entity_type').notNull(), // 'pesanan', 'menu', 'inventory', etc.
+  entityType: text('entity_type').notNull(), // 'orders', 'menuItems', 'inventoryItems', etc.
   entityId: integer('entity_id').notNull(),
   action: syncActionEnum('action').notNull(),
   data: json('data').notNull(),

@@ -84,8 +84,8 @@ export function Settings() {
         setSettings(appSettings);
         setFormData({
           deviceName: appSettings.deviceName,
-          warungNama: appSettings.warungNama,
-          warungAlamat: appSettings.warungAlamat || '',
+          warungNama: appSettings.businessName,
+          warungAlamat: appSettings.businessAddress || '',
           autoSyncEnabled: appSettings.autoSyncEnabled
         });
       }
@@ -95,9 +95,9 @@ export function Settings() {
   };
 
   const loadDbStats = async () => {
-    const menuCount = await db.menu.count();
-    const inventoryCount = await db.inventory.count();
-    const ordersCount = await db.pesanan.count();
+    const menuCount = await db.menuItems.count();
+    const inventoryCount = await db.inventoryItems.count();
+    const ordersCount = await db.orders.count();
 
     // Get pending sync count manually to avoid key range issues
     const allSyncItems = await db.syncQueue.toArray();
@@ -118,8 +118,8 @@ export function Settings() {
     try {
       await db.settings.update(settings.id, {
         deviceName: formData.deviceName,
-        warungNama: formData.warungNama,
-        warungAlamat: formData.warungAlamat,
+        businessName: formData.warungNama,
+        businessAddress: formData.warungAlamat,
         autoSyncEnabled: formData.autoSyncEnabled,
         updatedAt: new Date()
       });
@@ -154,7 +154,7 @@ export function Settings() {
         const testId = Math.floor(Math.random() * 1000000);
         await syncManager.addToQueue(
           'CREATE',
-          'pesanan',
+          'orders',
           testId,
           { test: 'sync data', timestamp: new Date().toISOString() }
         );
@@ -268,7 +268,7 @@ export function Settings() {
                 </div>
                 <div className="text-center p-4 bg-yellow-50 rounded-lg">
                   <p className="text-2xl font-bold text-yellow-600">{dbStats.ordersCount}</p>
-                  <p className="text-sm text-gray-600 mt-1">Pesanan</p>
+                  <p className="text-sm text-gray-600 mt-1">Order</p>
                 </div>
                 <div className="text-center p-4 bg-red-50 rounded-lg">
                   <p className="text-2xl font-bold text-red-600">{dbStats.pendingSyncCount}</p>

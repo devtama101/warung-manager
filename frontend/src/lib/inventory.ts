@@ -1,14 +1,14 @@
-import { db, Inventory, Pesanan, getDeviceId } from '../db/schema';
+import { db, InventoryItem, Order, getDeviceId } from '../db/schema';
 import { syncManager } from './sync';
 
-export type { Inventory };
+export type { InventoryItem };
 
 // Add inventory
-export async function addInventory(item: Omit<Inventory, 'id' | 'createdAt' | 'updatedAt' | 'syncStatus' | 'deviceId'>): Promise<number> {
+export async function addInventoryItem(item: Omit<InventoryItem, 'id' | 'createdAt' | 'updatedAt' | 'syncStatus' | 'deviceId'>): Promise<number> {
   const now = new Date();
   const deviceId = getDeviceId();
 
-  const inventoryId = await db.inventory.add({
+  const inventoryId = await db.inventoryItems.add({
     ...item,
     createdAt: now,
     updatedAt: now,
@@ -17,7 +17,7 @@ export async function addInventory(item: Omit<Inventory, 'id' | 'createdAt' | 'u
   });
 
   // Add to sync queue
-  await syncManager.addToQueue('CREATE', 'inventory', inventoryId, {
+  await syncManager.addToQueue('CREATE', 'inventoryItems', inventoryId, {
     ...item,
     createdAt: now,
     updatedAt: now
@@ -32,49 +32,49 @@ export async function updateStock(
   delta: number,
   reason: string = 'Manual adjustment'
 ): Promise<void> {
-  const item = await db.inventory.get(inventoryId);
+  const item = await db.inventoryItems.get(inventoryId);
   if (!item) {
     throw new Error('Inventory item not found');
   }
 
-  const newStock = item.stok + delta;
+  const newStock = item.stock + delta;
   if (newStock < 0) {
     throw new Error('Stock cannot be negative');
   }
 
   const now = new Date();
-  await db.inventory.update(inventoryId, {
-    stok: newStock,
+  await db.inventoryItems.update(inventoryId, {
+    stock: newStock,
     updatedAt: now,
     syncStatus: 'pending'
   });
 
-  const updatedItem = await db.inventory.get(inventoryId);
+  const updatedItem = await db.inventoryItems.get(inventoryId);
   if (updatedItem) {
-    await syncManager.addToQueue('UPDATE', 'inventory', inventoryId, updatedItem);
+    await syncManager.addToQueue('UPDATE', 'inventoryItems', inventoryId, updatedItem);
   }
 }
 
 // Get low stock items
-export async function getLowStockItems(): Promise<Inventory[]> {
-  const allItems = await db.inventory.toArray();
-  return allItems.filter(item => item.stok < item.stokMinimum);
+export async function getLowStockItems(): Promise<InventoryItem[]> {
+  const allItems = await db.inventoryItems.toArray();
+  return allItems.filter(item => item.stock < item.minimumStock);
 }
 
 // Auto-deduct stock from order
-export async function deductStockFromOrder(pesanan: Pesanan): Promise<void> {
-  for (const orderItem of pesanan.items) {
+export async function deductStockFromOrder(order: Order): Promise<void> {
+  for (const orderItem of order.items) {
     // Get menu item
-    const menu = await db.menu.get(orderItem.menuId);
-    if (!menu) continue;
+    const menuItem = await db.menuItems.get(orderItem.menuId);
+    if (!menuItem) continue;
 
     // Deduct stock for each ingredient
-    for (const ingredient of menu.ingredients) {
-      const qtyNeeded = ingredient.qty * orderItem.qty;
+    for (const ingredient of menuItem.ingredients) {
+      const qtyNeeded = ingredient.quantity * orderItem.quantity;
       try {
-        await updateStock(ingredient.inventoryId, -qtyNeeded, `Order #${pesanan.id}`);
+        await updateStock(ingredient.inventoryId, -qtyNeeded, `Order #${order.id}`);
       } catch (error) {
-        console.error(`Failed to deduct stock for ${ingredient.inventoryNama}:`, error);
+        console.error(`Failed to deduct stock for ${ingredient.inventoryName}:`, error);
         // Continue with other ingredients even if one fails
       }
     }
@@ -82,40 +82,40 @@ export async function deductStockFromOrder(pesanan: Pesanan): Promise<void> {
 }
 
 // Get inventory by category
-export async function getInventoryByCategory(kategori: 'bahan_baku' | 'kemasan' | 'lainnya'): Promise<Inventory[]> {
-  return await db.inventory
-    .where('kategori')
-    .equals(kategori)
+export async function getInventoryItemsByCategory(category: 'raw_material' | 'packaging' | 'other'): Promise<InventoryItem[]> {
+  return await db.inventoryItems
+    .where('category')
+    .equals(category)
     .toArray();
 }
 
 // Get all inventory
-export async function getAllInventory(): Promise<Inventory[]> {
-  return await db.inventory.toArray();
+export async function getAllInventoryItems(): Promise<InventoryItem[]> {
+  return await db.inventoryItems.toArray();
 }
 
 // Get inventory by ID
-export async function getInventoryById(inventoryId: number): Promise<Inventory | undefined> {
-  return await db.inventory.get(inventoryId);
+export async function getInventoryItemById(inventoryId: number): Promise<InventoryItem | undefined> {
+  return await db.inventoryItems.get(inventoryId);
 }
 
 // Update inventory details
-export async function updateInventory(inventoryId: number, updates: Partial<Inventory>): Promise<void> {
+export async function updateInventoryItem(inventoryId: number, updates: Partial<InventoryItem>): Promise<void> {
   const now = new Date();
-  await db.inventory.update(inventoryId, {
+  await db.inventoryItems.update(inventoryId, {
     ...updates,
     updatedAt: now,
     syncStatus: 'pending'
   });
 
-  const updatedItem = await db.inventory.get(inventoryId);
+  const updatedItem = await db.inventoryItems.get(inventoryId);
   if (updatedItem) {
-    await syncManager.addToQueue('UPDATE', 'inventory', inventoryId, updatedItem);
+    await syncManager.addToQueue('UPDATE', 'inventoryItems', inventoryId, updatedItem);
   }
 }
 
 // Delete inventory
-export async function deleteInventory(inventoryId: number): Promise<void> {
-  await db.inventory.delete(inventoryId);
-  await syncManager.addToQueue('DELETE', 'inventory', inventoryId, { id: inventoryId });
+export async function deleteInventoryItem(inventoryId: number): Promise<void> {
+  await db.inventoryItems.delete(inventoryId);
+  await syncManager.addToQueue('DELETE', 'inventoryItems', inventoryId, { id: inventoryId });
 }

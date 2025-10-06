@@ -4,12 +4,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { MenuCard } from '@/components/ui/menu-card';
-import { db, Menu } from '@/db/schema';
+import { db, MenuItem } from '@/db/schema';
 import { Badge } from '@/components/ui/badge';
 
 export function StockStatus() {
-  const [menuItems, setMenuItems] = useState<Menu[]>([]);
-  const [filteredItems, setFilteredItems] = useState<Menu[]>([]);
+  const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
+  const [filteredItems, setFilteredItems] = useState<MenuItem[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
 
@@ -24,8 +24,8 @@ export function StockStatus() {
       const query = searchQuery.toLowerCase();
       setFilteredItems(
         menuItems.filter(item =>
-          item.nama.toLowerCase().includes(query) ||
-          item.kategori.toLowerCase().includes(query)
+          item.name.toLowerCase().includes(query) ||
+          item.category.toLowerCase().includes(query)
         )
       );
     }
@@ -34,7 +34,7 @@ export function StockStatus() {
   const loadMenuItems = async () => {
     setLoading(true);
     try {
-      const items = await db.menu.orderBy('kategori').toArray();
+      const items = await db.menuItems.orderBy('category').toArray();
       setMenuItems(items);
       setFilteredItems(items);
     } finally {
@@ -44,7 +44,7 @@ export function StockStatus() {
 
   const toggleAvailability = async (id: number, currentStatus: boolean) => {
     try {
-      await db.menu.update(id, { tersedia: !currentStatus });
+      await db.menuItems.update(id, { available: !currentStatus });
       await loadMenuItems();
     } catch (error) {
       console.error('Failed to update menu availability:', error);
@@ -52,10 +52,10 @@ export function StockStatus() {
     }
   };
 
-  const groupByCategory = (items: Menu[]) => {
-    const grouped = new Map<string, Menu[]>();
+  const groupByCategory = (items: MenuItem[]) => {
+    const grouped = new Map<string, MenuItem[]>();
     items.forEach(item => {
-      const category = item.kategori || 'Lainnya';
+      const category = item.category || 'Lainnya';
       if (!grouped.has(category)) {
         grouped.set(category, []);
       }
@@ -70,7 +70,7 @@ export function StockStatus() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Status Stok Menu</h1>
+          <h1 className="text-3xl font-bold text-gray-900">Status Stok MenuItem</h1>
           <p className="text-gray-600 mt-1">Ubah ketersediaan menu (Tersedia/Habis)</p>
         </div>
       </div>
@@ -135,15 +135,15 @@ export function StockStatus() {
                   <MenuCard
                     key={item.id}
                     id={item.id}
-                    nama={item.nama}
-                    kategori={item.kategori}
-                    harga={item.harga}
-                    hargaModal={item.hargaModal}
-                    deskripsi={item.deskripsi}
-                    gambar={item.gambar}
-                    tersedia={item.tersedia}
+                    name={item.name}
+                    category={item.category}
+                    price={item.price}
+                    costPrice={item.costPrice}
+                    description={item.description}
+                    image={item.image}
+                    available={item.available}
                     ingredients={item.ingredients}
-                    onToggleAvailability={() => toggleAvailability(item.id!, item.tersedia)}
+                    onToggleAvailability={() => toggleAvailability(item.id!, item.available)}
                   />
                 ))}
               </div>

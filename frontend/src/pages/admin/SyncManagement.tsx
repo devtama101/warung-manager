@@ -19,19 +19,19 @@ interface SyncLog {
 }
 
 interface SyncedData {
-  pesanan: any[];
+  orders: any[];
   menu: any[];
   inventory: any[];
 }
 
 export default function SyncManagement() {
   const [syncLogs, setSyncLogs] = useState<SyncLog[]>([]);
-  const [syncedData, setSyncedData] = useState<SyncedData>({ pesanan: [], menu: [], inventory: [] });
+  const [syncedData, setSyncedData] = useState<SyncedData>({ orders: [], menu: [], inventory: [] });
   const [loading, setLoading] = useState(true);
   const [selectedTable, setSelectedTable] = useState<'all' | 'pesanan' | 'menu' | 'inventory'>('all');
 
   useEffect(() => {
-    document.title = 'Kelola Sinkronisasi - Warung POS';
+    document.title = 'Kelola Sinkronisasi - Warung Manager';
     loadData();
   }, []);
 
@@ -47,7 +47,7 @@ export default function SyncManagement() {
 
       // Load synced data
       const dataResponse = await axios.get(`${API_URL}/api/admin/synced-data`, { headers });
-      setSyncedData(dataResponse.data || { pesanan: [], menu: [], inventory: [] });
+      setSyncedData(dataResponse.data || { orders: [], menu: [], inventory: [] });
     } catch (error) {
       console.error('Failed to load sync data:', error);
     } finally {
@@ -100,10 +100,10 @@ export default function SyncManagement() {
         </Card>
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-gray-600">Pesanan</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-600">Order</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-600">{syncedData.pesanan.length}</div>
+            <div className="text-2xl font-bold text-blue-600">{syncedData.orders.length}</div>
           </CardContent>
         </Card>
         <Card>
@@ -136,7 +136,7 @@ export default function SyncManagement() {
           onClick={() => setSelectedTable('pesanan')}
           className={`px-4 py-2 rounded ${selectedTable === 'pesanan' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
         >
-          Pesanan
+          Order
         </button>
         <button
           onClick={() => setSelectedTable('menu')}

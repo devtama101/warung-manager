@@ -49,7 +49,7 @@ export function AdminLogin() {
       <div className="w-full max-w-md">
         {/* Logo/Brand */}
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-white mb-2">Warung POS</h1>
+          <h1 className="text-4xl font-bold text-white mb-2">Warung Manager</h1>
           <p className="text-blue-300">Admin Dashboard</p>
         </div>
 

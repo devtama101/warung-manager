@@ -15,16 +15,16 @@ import { formatCurrency } from "@/lib/utils";
 
 export interface MenuCardProps {
   id?: number;
-  nama: string;
-  kategori: 'makanan' | 'minuman' | 'snack';
-  harga: number;
-  hargaModal?: number;
-  deskripsi?: string;
-  gambar?: string;
-  tersedia: boolean;
+  name: string;
+  category: 'food' | 'beverage' | 'snack';
+  price: number;
+  costPrice?: number;
+  description?: string;
+  image?: string;
+  available: boolean;
   ingredients?: Array<{
-    inventoryNama: string;
-    qty: number | string;
+    inventoryName: string;
+    quantity: number | string;
     unit: string;
   }>;
   onEdit?: () => void;
@@ -33,20 +33,20 @@ export interface MenuCardProps {
 }
 
 export function MenuCard({
-  nama,
-  kategori,
-  harga,
-  hargaModal,
-  deskripsi,
-  gambar,
-  tersedia,
+  name,
+  category,
+  price,
+  costPrice,
+  description,
+  image,
+  available,
   ingredients = [],
   onEdit,
   onDelete,
   onToggleAvailability,
 }: MenuCardProps) {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const images = gambar ? [gambar] : [];
+  const images = image ? [image] : [];
 
   const nextImage = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -77,9 +77,9 @@ export function MenuCard({
             <motion.img
               key={currentImageIndex}
               src={images[currentImageIndex]}
-              alt={`${nama} - View ${currentImageIndex + 1}`}
+              alt={`${name} - View ${currentImageIndex + 1}`}
               className={`object-cover w-full h-full group-hover:scale-110 transition-transform duration-300 ${
-                !tersedia ? "grayscale" : ""
+                !available ? "grayscale" : ""
               }`}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -135,17 +135,17 @@ export function MenuCard({
         {/* Category Badge */}
         <div className="absolute top-3 left-3">
           <Badge variant="secondary" className="capitalize">
-            {kategori}
+            {category}
           </Badge>
         </div>
 
         {/* Availability Badge */}
         <div className="absolute top-3 right-3">
           <Badge
-            variant={tersedia ? "default" : "destructive"}
-            className={tersedia ? "bg-green-500 hover:bg-green-600" : ""}
+            variant={available ? "default" : "destructive"}
+            className={available ? "bg-green-500 hover:bg-green-600" : ""}
           >
-            {tersedia ? "Tersedia" : "Habis"}
+            {available ? "Tersedia" : "Habis"}
           </Badge>
         </div>
       </div>
@@ -155,11 +155,11 @@ export function MenuCard({
         <div className="space-y-3">
           <div>
             <h3 className="font-semibold text-lg line-clamp-1 group-hover:text-green-600 transition-colors duration-200">
-              {nama}
+              {name}
             </h3>
-            {deskripsi && (
+            {description && (
               <p className="text-sm text-gray-600 line-clamp-2 mt-1">
-                {deskripsi}
+                {description}
               </p>
             )}
           </div>
@@ -167,11 +167,11 @@ export function MenuCard({
           {/* Price */}
           <div className="flex items-baseline gap-2">
             <span className="text-2xl font-bold text-green-600">
-              {formatCurrency(harga)}
+              {formatCurrency(price)}
             </span>
-            {hargaModal && (
+            {costPrice && (
               <span className="text-xs text-gray-500">
-                Modal: {formatCurrency(hargaModal)}
+                Modal: {formatCurrency(costPrice)}
               </span>
             )}
           </div>
@@ -181,9 +181,9 @@ export function MenuCard({
             <div className="space-y-1">
               <div className="text-xs font-medium text-gray-700">Bahan:</div>
               <div className="space-y-0.5">
-                {ingredients.slice(0, 3).map((ing, idx) => (
+                {ingredients.slice(0, 3).map((ing: any, idx: number) => (
                   <p key={idx} className="text-xs text-gray-600">
-                    • {ing.inventoryNama} ({ing.qty} {ing.unit})
+                    • {ing.inventoryName} ({ing.quantity} {ing.unit})
                   </p>
                 ))}
                 {ingredients.length > 3 && (
@@ -205,12 +205,12 @@ export function MenuCard({
             size="sm"
             onClick={onToggleAvailability}
             className={`flex-1 ${
-              tersedia
+              available
                 ? "border-red-300 text-red-700 hover:bg-red-50"
                 : "border-green-300 text-green-700 hover:bg-green-50"
             }`}
           >
-            {tersedia ? "Tandai Habis" : "Tandai Tersedia"}
+            {available ? "Tandai Habis" : "Tandai Tersedia"}
           </Button>
           {onEdit && (
             <Button

@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { db } from '../db/index';
-import { users, devices, orders, menuItems, inventoryItems, syncLogs, conflictLogs } from '../db/schema';
+import { users, devices, pesanan, menu, inventory, syncLogs, conflictLogs } from '../db/schema';
 import { eq, desc, and, gte, lte, sql } from 'drizzle-orm';
 import { authMiddleware } from '../middleware/auth';
 
@@ -30,28 +30,28 @@ admin.get('/users', async (c) => {
         const [orderStats] = await db
           .select({
             totalOrders: sql<number>`count(*)`,
-            totalRevenue: sql<number>`coalesce(sum(${orders.total}), 0)`
+            totalRevenue: sql<number>`coalesce(sum(${pesanan.total}), 0)`
           })
-          .from(orders)
-          .where(eq(orders.userId, user.id));
+          .from(pesanan)
+          .where(eq(pesanan.userId, user.id));
 
         const [lastOrder] = await db
-          .select({ orderDate: orders.orderDate })
-          .from(orders)
-          .where(eq(orders.userId, user.id))
-          .orderBy(desc(orders.orderDate))
+          .select({ tanggal: pesanan.tanggal })
+          .from(pesanan)
+          .where(eq(pesanan.userId, user.id))
+          .orderBy(desc(pesanan.tanggal))
           .limit(1);
 
         return {
           id: user.id,
           email: user.email,
-          businessName: user.businessName,
-          businessAddress: user.businessAddress,
+          warungNama: user.warungNama,
+          warungAlamat: user.warungAlamat,
           createdAt: user.createdAt,
           deviceCount: Number(deviceCount?.count || 0),
           totalOrders: Number(orderStats?.totalOrders || 0),
           totalRevenue: Number(orderStats?.totalRevenue || 0),
-          lastOrderDate: lastOrder?.orderDate || null
+          lastOrderDate: lastOrder?.tanggal || null
         };
       })
     );
@@ -89,30 +89,30 @@ admin.get('/users/:id', async (c) => {
     const [orderStats] = await db
       .select({
         totalOrders: sql<number>`count(*)`,
-        completedOrders: sql<number>`count(*) filter (where ${orders.status} = 'completed')`,
-        pendingOrders: sql<number>`count(*) filter (where ${orders.status} = 'pending')`,
-        cancelledOrders: sql<number>`count(*) filter (where ${orders.status} = 'cancelled')`,
-        totalRevenue: sql<number>`coalesce(sum(${orders.total}) filter (where ${orders.status} = 'completed'), 0)`
+        completedOrders: sql<number>`count(*) filter (where ${pesanan.status} = 'completed')`,
+        pendingOrders: sql<number>`count(*) filter (where ${pesanan.status} = 'pending')`,
+        cancelledOrders: sql<number>`count(*) filter (where ${pesanan.status} = 'cancelled')`,
+        totalRevenue: sql<number>`coalesce(sum(${pesanan.total}) filter (where ${pesanan.status} = 'completed'), 0)`
       })
-      .from(orders)
-      .where(eq(orders.userId, userId));
+      .from(pesanan)
+      .where(eq(pesanan.userId, userId));
 
-    // Get menuItems items count
+    // Get menu items count
     const [menuCount] = await db
       .select({ count: sql<number>`count(*)` })
-      .from(menuItems)
-      .where(eq(menuItems.userId, userId));
+      .from(menu)
+      .where(eq(menu.userId, userId));
 
-    // Get inventoryItems items count
+    // Get inventory items count
     const [inventoryCount] = await db
       .select({ count: sql<number>`count(*)` })
-      .from(inventoryItems)
-      .where(eq(inventoryItems.userId, userId));
+      .from(inventory)
+      .where(eq(inventory.userId, userId));
 
     // Get recent orders
-    const recentOrders = await db.query.orders.findMany({
-      where: eq(orders.userId, userId),
-      orderBy: [desc(orders.orderDate)],
+    const recentOrders = await db.query.pesanan.findMany({
+      where: eq(pesanan.userId, userId),
+      orderBy: [desc(pesanan.tanggal)],
       limit: 10
     });
 
@@ -122,8 +122,8 @@ admin.get('/users/:id', async (c) => {
         user: {
           id: user.id,
           email: user.email,
-          businessName: user.businessName,
-          businessAddress: user.businessAddress,
+          warungNama: user.warungNama,
+          warungAlamat: user.warungAlamat,
           createdAt: user.createdAt
         },
         devices: userDevices,
@@ -175,15 +175,15 @@ admin.get('/revenue', async (c) => {
     // Get total revenue stats
     const [totalStats] = await db
       .select({
-        totalRevenue: sql<number>`coalesce(sum(${orders.total}), 0)`,
+        totalRevenue: sql<number>`coalesce(sum(${pesanan.total}), 0)`,
         totalOrders: sql<number>`count(*)`,
-        activeUsers: sql<number>`count(distinct ${orders.userId})`
+        activeUsers: sql<number>`count(distinct ${pesanan.userId})`
       })
-      .from(orders)
+      .from(pesanan)
       .where(
         and(
-          gte(orders.orderDate, startDate),
-          eq(orders.status, 'completed')
+          gte(pesanan.tanggal, startDate),
+          eq(pesanan.status, 'completed')
         )
       );
 
@@ -194,19 +194,19 @@ admin.get('/revenue', async (c) => {
     // Get revenue by user
     const revenueByUser = await db
       .select({
-        userId: orders.userId,
-        totalRevenue: sql<number>`sum(${orders.total})`,
+        userId: pesanan.userId,
+        totalRevenue: sql<number>`sum(${pesanan.total})`,
         totalOrders: sql<number>`count(*)`
       })
-      .from(orders)
+      .from(pesanan)
       .where(
         and(
-          gte(orders.orderDate, startDate),
-          eq(orders.status, 'completed')
+          gte(pesanan.tanggal, startDate),
+          eq(pesanan.status, 'completed')
         )
       )
-      .groupBy(orders.userId)
-      .orderBy(desc(sql`sum(${orders.total})`))
+      .groupBy(pesanan.userId)
+      .orderBy(desc(sql`sum(${pesanan.total})`))
       .limit(10);
 
     // Get user names for revenue by user
@@ -217,7 +217,7 @@ admin.get('/revenue', async (c) => {
         });
         return {
           userId: item.userId,
-          userName: user?.businessName || 'Unknown',
+          userName: user?.warungNama || 'Unknown',
           totalRevenue: Number(item.totalRevenue),
           totalOrders: Number(item.totalOrders),
           avgOrderValue: Number(item.totalRevenue) / Number(item.totalOrders)
@@ -225,24 +225,24 @@ admin.get('/revenue', async (c) => {
       })
     );
 
-    // Get revenue by menuItems - calculate in app since JSON unnesting is problematic
+    // Get revenue by menu - calculate in app since JSON unnesting is problematic
     const completedOrders = await db
       .select()
-      .from(orders)
+      .from(pesanan)
       .where(
         and(
-          gte(orders.orderDate, startDate),
-          eq(orders.status, 'completed')
+          gte(pesanan.tanggal, startDate),
+          eq(pesanan.status, 'completed')
         )
       );
 
-    // Aggregate menuItems revenue
+    // Aggregate menu revenue
     const menuRevenueMap = new Map<string, { revenue: number; qty: number }>();
     completedOrders.forEach(order => {
       if (Array.isArray(order.items)) {
         order.items.forEach((item: any) => {
-          const existing = menuRevenueMap.get(item.menuName) || { revenue: 0, qty: 0 };
-          menuRevenueMap.set(item.menuName, {
+          const existing = menuRevenueMap.get(item.menuNama) || { revenue: 0, qty: 0 };
+          menuRevenueMap.set(item.menuNama, {
             revenue: existing.revenue + Number(item.subtotal || 0),
             qty: existing.qty + Number(item.qty || 0)
           });
@@ -251,8 +251,8 @@ admin.get('/revenue', async (c) => {
     });
 
     const revenueByMenuFormatted = Array.from(menuRevenueMap.entries())
-      .map(([menuName, data]) => ({
-        menuName,
+      .map(([menuNama, data]) => ({
+        menuNama,
         totalRevenue: data.revenue,
         totalQty: data.qty,
         avgPrice: data.qty > 0 ? data.revenue / data.qty : 0
@@ -266,19 +266,19 @@ admin.get('/revenue', async (c) => {
       const months = timeRange === '3months' ? 3 : 12;
       monthlyRevenue = await db
         .select({
-          month: sql<string>`to_char(${orders.orderDate}, 'Mon YYYY')`,
-          revenue: sql<number>`sum(${orders.total})`,
+          month: sql<string>`to_char(${pesanan.tanggal}, 'Mon YYYY')`,
+          revenue: sql<number>`sum(${pesanan.total})`,
           orders: sql<number>`count(*)`
         })
-        .from(orders)
+        .from(pesanan)
         .where(
           and(
-            gte(orders.orderDate, startDate),
-            eq(orders.status, 'completed')
+            gte(pesanan.tanggal, startDate),
+            eq(pesanan.status, 'completed')
           )
         )
-        .groupBy(sql`to_char(${orders.orderDate}, 'Mon YYYY')`)
-        .orderBy(sql`to_char(${orders.orderDate}, 'Mon YYYY')`);
+        .groupBy(sql`to_char(${pesanan.tanggal}, 'Mon YYYY')`)
+        .orderBy(sql`to_char(${pesanan.tanggal}, 'Mon YYYY')`);
     }
 
     return c.json({
@@ -318,32 +318,32 @@ admin.get('/stats', async (c) => {
     const [orderStats] = await db
       .select({
         total: sql<number>`count(*)`,
-        completed: sql<number>`count(*) filter (where ${orders.status} = 'completed')`,
-        pending: sql<number>`count(*) filter (where ${orders.status} = 'pending')`,
-        cancelled: sql<number>`count(*) filter (where ${orders.status} = 'cancelled')`,
-        totalRevenue: sql<number>`coalesce(sum(${orders.total}), 0)`
+        completed: sql<number>`count(*) filter (where ${pesanan.status} = 'completed')`,
+        pending: sql<number>`count(*) filter (where ${pesanan.status} = 'pending')`,
+        cancelled: sql<number>`count(*) filter (where ${pesanan.status} = 'cancelled')`,
+        totalRevenue: sql<number>`coalesce(sum(${pesanan.total}), 0)`
       })
-      .from(orders);
+      .from(pesanan);
 
     const [menuStats] = await db
       .select({ count: sql<number>`count(*)` })
-      .from(menuItems);
+      .from(menu);
 
     const [inventoryStats] = await db
       .select({ count: sql<number>`count(*)` })
-      .from(inventoryItems);
+      .from(inventory);
 
     // Get recent activity
     const recentOrders = await db
       .select({
-        id: orders.id,
-        orderDate: orders.orderDate,
-        total: orders.total,
-        status: orders.status,
-        userId: orders.userId
+        id: pesanan.id,
+        tanggal: pesanan.tanggal,
+        total: pesanan.total,
+        status: pesanan.status,
+        userId: pesanan.userId
       })
-      .from(orders)
-      .orderBy(desc(orders.orderDate))
+      .from(pesanan)
+      .orderBy(desc(pesanan.tanggal))
       .limit(10);
 
     // Get active devices (last 24 hours)
@@ -370,7 +370,7 @@ admin.get('/stats', async (c) => {
         },
         recentActivity: recentOrders.map(order => ({
           id: order.id,
-          orderDate: order.orderDate,
+          tanggal: order.tanggal,
           total: order.total,
           status: order.status,
           userId: order.userId
@@ -439,20 +439,20 @@ admin.get('/orders', async (c) => {
 
     // Build query conditions
     const conditions = [
-      gte(orders.orderDate, startDate)
+      gte(pesanan.tanggal, startDate)
     ];
 
     if (status && status !== 'all') {
-      conditions.push(eq(orders.status, status as 'pending' | 'completed' | 'cancelled'));
+      conditions.push(eq(pesanan.status, status as 'pending' | 'completed' | 'cancelled'));
     }
 
     // Get user info for display
-    const allOrders = await db.query.orders.findMany({
+    const allPesanan = await db.query.pesanan.findMany({
       where: conditions.length > 1 ? and(...conditions) : conditions[0],
       orderBy: [
-        sortBy === 'tanggal' ? desc(orders.orderDate) :
-        sortBy === 'total' ? desc(orders.total) :
-        desc(orders.status)
+        sortBy === 'tanggal' ? desc(pesanan.tanggal) :
+        sortBy === 'total' ? desc(pesanan.total) :
+        desc(pesanan.status)
       ],
       limit: limitNum,
       offset: offset,
@@ -464,19 +464,19 @@ admin.get('/orders', async (c) => {
     // Get total count for pagination
     const [totalCount] = await db
       .select({ count: sql<number>`count(*)` })
-      .from(orders)
+      .from(pesanan)
       .where(conditions.length > 1 ? and(...conditions) : conditions[0]);
 
     // Get user information for each order
     const ordersWithUserInfo = await Promise.all(
-      allOrders.map(async (order) => {
+      allPesanan.map(async (order) => {
         const user = await db.query.users.findFirst({
           where: eq(users.id, order.userId)
         });
 
         return {
           ...order,
-          userName: user?.businessName || 'Unknown',
+          userName: user?.warungNama || 'Unknown',
           deviceName: order.deviceId // We could enhance this with device info if needed
         };
       })
@@ -487,9 +487,9 @@ admin.get('/orders', async (c) => {
     if (search) {
       const searchLower = (search as string).toLowerCase();
       filteredOrders = ordersWithUserInfo.filter(order =>
-        (order.tableNumber && order.tableNumber.toLowerCase().includes(searchLower)) ||
+        (order.nomorMeja && order.nomorMeja.toLowerCase().includes(searchLower)) ||
         (order.items as any[]).some((item: any) =>
-          item.menuName && item.menuName.toLowerCase().includes(searchLower)
+          item.menuNama && item.menuNama.toLowerCase().includes(searchLower)
         ) ||
         (order.userName && order.userName.toLowerCase().includes(searchLower))
       );
@@ -537,12 +537,12 @@ admin.patch('/orders/:id/status', async (c) => {
     }
 
     const [updatedOrder] = await db
-      .update(orders)
+      .update(pesanan)
       .set({
         status: status as any,
         updatedAt: new Date()
       })
-      .where(eq(orders.id, orderId))
+      .where(eq(pesanan.id, orderId))
       .returning();
 
     if (!updatedOrder) {
@@ -563,26 +563,26 @@ admin.patch('/orders/:id/status', async (c) => {
 // Get synced data
 admin.get('/synced-data', async (c) => {
   try {
-    const allOrders = await db.query.orders.findMany({
-      orderBy: [desc(orders.createdAt)],
+    const allPesanan = await db.query.pesanan.findMany({
+      orderBy: [desc(pesanan.createdAt)],
       limit: 50
     });
 
-    const allMenuItems = await db.query.menuItems.findMany({
-      orderBy: [desc(menuItems.createdAt)],
+    const allMenu = await db.query.menu.findMany({
+      orderBy: [desc(menu.createdAt)],
       limit: 50
     });
 
-    const allInventoryItems = await db.query.inventoryItems.findMany({
-      orderBy: [desc(inventoryItems.createdAt)],
+    const allInventory = await db.query.inventory.findMany({
+      orderBy: [desc(inventory.createdAt)],
       limit: 50
     });
 
     return c.json({
       success: true,
-      orders: allOrders,
-      menuItems: allMenuItems,
-      inventoryItems: allInventoryItems
+      pesanan: allPesanan,
+      menu: allMenu,
+      inventory: allInventory
     });
   } catch (error) {
     console.error('Get synced data error:', error);
@@ -597,14 +597,14 @@ admin.delete('/synced-data/:table/:id', async (c) => {
     const id = parseInt(c.req.param('id'));
 
     switch (table) {
-      case 'orders':
-        await db.delete(orders).where(eq(orders.id, id));
+      case 'pesanan':
+        await db.delete(pesanan).where(eq(pesanan.id, id));
         break;
-      case 'menuItems':
-        await db.delete(menuItems).where(eq(menuItems.id, id));
+      case 'menu':
+        await db.delete(menu).where(eq(menu.id, id));
         break;
-      case 'inventoryItems':
-        await db.delete(inventoryItems).where(eq(inventoryItems.id, id));
+      case 'inventory':
+        await db.delete(inventory).where(eq(inventory.id, id));
         break;
       default:
         return c.json({ error: 'Invalid table' }, 400);
@@ -699,34 +699,34 @@ admin.post('/conflicts/:conflictId/resolve', async (c) => {
       const winningData = resolution === 'SERVER_WINS' ? conflict.serverData : conflict.clientData;
 
       switch (conflict.entityType) {
-        case 'orders':
-          await db.update(orders)
+        case 'pesanan':
+          await db.update(pesanan)
             .set({
               ...(winningData as any),
-              version: sql`${orders.version} + 1`,
+              version: sql`${pesanan.version} + 1`,
               lastModifiedBy: 'admin_resolution'
             })
-            .where(eq(orders.id, conflict.entityId));
+            .where(eq(pesanan.id, conflict.entityId));
           break;
 
-        case 'menuItems':
-          await db.update(menuItems)
+        case 'menu':
+          await db.update(menu)
             .set({
               ...(winningData as any),
-              version: sql`${menuItems.version} + 1`,
+              version: sql`${menu.version} + 1`,
               lastModifiedBy: 'admin_resolution'
             })
-            .where(eq(menuItems.id, conflict.entityId));
+            .where(eq(menu.id, conflict.entityId));
           break;
 
-        case 'inventoryItems':
-          await db.update(inventoryItems)
+        case 'inventory':
+          await db.update(inventory)
             .set({
               ...(winningData as any),
-              version: sql`${inventoryItems.version} + 1`,
+              version: sql`${inventory.version} + 1`,
               lastModifiedBy: 'admin_resolution'
             })
-            .where(eq(inventoryItems.id, conflict.entityId));
+            .where(eq(inventory.id, conflict.entityId));
           break;
       }
     }

@@ -13,11 +13,11 @@ const SALT_ROUNDS = 10;
 // Register new warung user
 auth.post('/register', async (c) => {
   try {
-    const { email, password, warungNama, warungAlamat } = await c.req.json();
+    const { email, password, businessName, businessAddress } = await c.req.json();
 
     // Validate input
-    if (!email || !password || !warungNama) {
-      return c.json({ error: 'Email, password, and warung name are required' }, 400);
+    if (!email || !password || !businessName) {
+      return c.json({ error: 'Email, password, and business name are required' }, 400);
     }
 
     // Validate email format
@@ -46,13 +46,13 @@ auth.post('/register', async (c) => {
     const [newUser] = await db.insert(users).values({
       email,
       password: hashedPassword,
-      warungNama,
-      warungAlamat: warungAlamat || null
+      businessName,
+      businessAddress: businessAddress || null
     }).returning({
       id: users.id,
       email: users.email,
-      warungNama: users.warungNama,
-      warungAlamat: users.warungAlamat,
+      businessName: users.businessName,
+      businessAddress: users.businessAddress,
       createdAt: users.createdAt
     });
 
@@ -131,7 +131,7 @@ auth.post('/login', async (c) => {
         {
           userId: admin.id,
           email: admin.email,
-          warungNama: admin.warungNama,
+          businessName: admin.businessName,
           role: 'admin',
           warungId: admin.id
         },
@@ -147,8 +147,8 @@ auth.post('/login', async (c) => {
           user: {
             id: admin.id,
             email: admin.email,
-            warungNama: admin.warungNama,
-            warungAlamat: admin.warungAlamat,
+            businessName: admin.businessName,
+            businessAddress: admin.businessAddress,
             createdAt: admin.createdAt
           },
           token,
@@ -211,8 +211,8 @@ auth.post('/login', async (c) => {
           id: employee.id,
           email: employee.email,
           name: employee.name,
-          warungNama: owner?.warungNama || '',
-          warungAlamat: owner?.warungAlamat || null,
+          businessName: owner?.businessName || '',
+          businessAddress: owner?.businessAddress || null,
           createdAt: employee.createdAt
         },
         token,
@@ -261,8 +261,8 @@ auth.post('/verify', async (c) => {
           user: {
             id: user.id,
             email: user.email,
-            warungNama: user.warungNama,
-            warungAlamat: user.warungAlamat
+            businessName: user.businessName,
+            businessAddress: user.businessAddress
           },
           deviceId: decoded.deviceId
         }
@@ -290,8 +290,8 @@ auth.post('/verify', async (c) => {
             id: employee.id,
             email: employee.email,
             name: employee.name,
-            warungNama: owner?.warungNama || '',
-            warungAlamat: owner?.warungAlamat || null
+            businessName: owner?.businessName || '',
+            businessAddress: owner?.businessAddress || null
           },
           deviceId: employee.deviceId
         }

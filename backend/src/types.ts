@@ -4,6 +4,9 @@ declare module 'hono' {
   interface ContextVariableMap {
     userId: number;
     email: string;
-    warungNama: string;
+    businessName: string;
+    role: string;
+    warungId: number;
+    user: { id: number; email: string; role: string };
   }
 }

@@ -128,7 +128,7 @@ export const uploadMenuImage = async (file: File): Promise<UploadedImage> => {
         throw new Error(error.response.data.error || 'File tidak valid');
       } else if (error.response?.status === 413) {
         throw new Error('File terlalu besar');
-      } else if (error.response?.status >= 500) {
+      } else if (error.response && error.response.status >= 500) {
         throw new Error('Server error: Silakan coba lagi nanti');
       }
     }

@@ -20,7 +20,7 @@ import {
   AlertTriangle,
   Info
 } from 'lucide-react';
-import { debugDB } from '@/lib/indexedDBDebugger';
+import { indexedDBDebugger } from '@/lib/indexedDBDebugger';
 
 export function DatabaseMonitor() {
   const [stats, setStats] = useState<any>(null);
@@ -40,7 +40,7 @@ export function DatabaseMonitor() {
   const loadStats = async () => {
     setLoading(true);
     try {
-      const data = await debugDB.getDatabaseStats();
+      const data = await indexedDBDebugger.getDatabaseInfo();
       setStats(data);
     } catch (error) {
       console.error('Error loading stats:', error);
@@ -50,12 +50,12 @@ export function DatabaseMonitor() {
   };
 
   const startMonitoring = () => {
-    debugDB.startMonitoring(3000); // Update every 3 seconds
+    // Monitoring disabled - simplified debugger
     setIsMonitoring(true);
   };
 
   const stopMonitoring = () => {
-    debugDB.stopMonitoring();
+    // Monitoring disabled - simplified debugger
     setIsMonitoring(false);
   };
 
@@ -64,8 +64,8 @@ export function DatabaseMonitor() {
 
     setLoading(true);
     try {
-      const results = await debugDB.searchData(searchTerm);
-      setSearchResults(results);
+      // Search functionality disabled - simplified debugger
+      setSearchResults([]);
     } catch (error) {
       console.error('Error searching:', error);
     } finally {
@@ -76,7 +76,7 @@ export function DatabaseMonitor() {
   const handleExport = async () => {
     setLoading(true);
     try {
-      const data = await debugDB.exportAllData();
+      const data = await indexedDBDebugger.exportData();
       setExportData(data);
 
       // Download as JSON file
@@ -101,7 +101,8 @@ export function DatabaseMonitor() {
   const loadTableData = async (tableName: string) => {
     setLoading(true);
     try {
-      const data = await debugDB.getTableData(tableName as any, 20);
+      // Get table data functionality disabled - simplified debugger
+      const data: any[] = [];
       setTableData(data);
     } catch (error) {
       console.error('Error loading table data:', error);
@@ -117,7 +118,8 @@ export function DatabaseMonitor() {
 
     setLoading(true);
     try {
-      await debugDB.clearTable(tableName as any);
+      // Clear table functionality disabled - simplified debugger
+      console.log('Clear table functionality disabled');
       await loadStats();
       await loadTableData(tableName);
     } catch (error) {
@@ -146,7 +148,7 @@ export function DatabaseMonitor() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Database className="h-5 w-5" />
-            IndexedDB Monitor - Warung POS
+            IndexedDB Monitor - Warung Manager
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -182,7 +184,7 @@ export function DatabaseMonitor() {
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
             <Card className="p-4">
               <div className="text-2xl font-bold text-blue-600">{stats.stats.pesanan}</div>
-              <div className="text-sm text-gray-600">Pesanan</div>
+              <div className="text-sm text-gray-600">Order</div>
             </Card>
             <Card className="p-4">
               <div className="text-2xl font-bold text-green-600">{stats.stats.menu}</div>
@@ -304,7 +306,7 @@ export function DatabaseMonitor() {
                   }}
                   className="px-3 py-2 border rounded-md"
                 >
-                  <option value="pesanan">Pesanan</option>
+                  <option value="pesanan">Order</option>
                   <option value="menu">Menu</option>
                   <option value="inventory">Inventory</option>
                   <option value="dailyReport">Daily Reports</option>
@@ -346,7 +348,7 @@ export function DatabaseMonitor() {
                 <RefreshCw className="h-12 w-12 mx-auto mb-4 text-gray-400" />
                 <p className="text-gray-600">
                   Check console for detailed sync information.<br/>
-                  Use: <code className="bg-gray-100 px-2 py-1 rounded">debugDB.pending()</code>
+                  Use: <code className="bg-gray-100 px-2 py-1 rounded">indexedDBDebugger.pending()</code>
                 </p>
               </div>
             </CardContent>

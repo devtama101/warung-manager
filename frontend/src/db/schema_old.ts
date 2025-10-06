@@ -2,14 +2,14 @@ import Dexie, { Table } from 'dexie';
 
 // ============= INTERFACES =============
 
-export interface Order {
+export interface Pesanan {
   id?: number; // Auto-increment local ID
-  serverId?: number; // ID from server after sync
-  tableNumber?: string; // Table number (optional)
-  items: OrderItem[];
+  serverId?: string; // ID from server after sync
+  nomorMeja?: string; // Table number (optional)
+  items: PesananItem[];
   total: number;
   status: 'pending' | 'completed' | 'cancelled';
-  orderDate: Date;
+  tanggal: Date;
   createdAt: Date;
   updatedAt: Date;
   syncStatus: 'pending' | 'synced' | 'conflict';
@@ -18,25 +18,25 @@ export interface Order {
   lastModifiedBy?: string; // Device ID that last modified this record
 }
 
-export interface OrderItem {
+export interface PesananItem {
   menuId: number;
-  menuName: string;
-  quantity: number;
-  price: number;
+  menuNama: string;
+  qty: number;
+  harga: number;
   subtotal: number;
-  notes?: string;
+  catatan?: string;
 }
 
-export interface MenuItem {
+export interface Menu {
   id?: number;
-  serverId?: number;
-  name: string;
-  description?: string;
-  category: 'food' | 'beverage' | 'snack';
-  price: number;
-  costPrice: number;
-  available: boolean;
-  image?: string; // Base64 or URL
+  serverId?: string;
+  nama: string;
+  deskripsi?: string;
+  kategori: 'makanan' | 'minuman' | 'snack';
+  harga: number;
+  hargaModal: number;
+  tersedia: boolean;
+  gambar?: string; // Base64 or URL
   ingredients: MenuIngredient[]; // Link to inventory
   createdAt: Date;
   updatedAt: Date;
@@ -48,22 +48,22 @@ export interface MenuItem {
 
 export interface MenuIngredient {
   inventoryId: number;
-  inventoryName: string;
-  quantity: number; // Quantity used per menu item
+  inventoryNama: string;
+  qty: number; // Quantity used per menu item
   unit: string; // kg, pcs, etc
 }
 
-export interface InventoryItem {
+export interface Inventory {
   id?: number;
-  serverId?: number;
-  name: string;
-  category: 'raw_material' | 'packaging' | 'other';
-  stock: number; // Current stock
+  serverId?: string;
+  nama: string;
+  kategori: 'bahan_baku' | 'kemasan' | 'lainnya';
+  stok: number; // Current stock
   unit: string; // kg, liter, pcs, etc
-  minimumStock: number; // Alert threshold
-  purchasePrice: number; // Purchase price
+  stokMinimum: number; // Alert threshold
+  hargaBeli: number; // Purchase price
   supplier?: string;
-  purchaseDate?: Date;
+  tanggalBeli?: Date;
   createdAt: Date;
   updatedAt: Date;
   syncStatus: 'pending' | 'synced' | 'conflict';
@@ -74,13 +74,13 @@ export interface InventoryItem {
 
 export interface DailyReport {
   id?: number;
-  serverId?: number;
-  reportDate: Date; // YYYY-MM-DD
-  totalSales: number;
-  totalOrders: number;
-  totalCost: number; // Cost of goods sold
-  profit: number; // Profit
-  bestSellingItem: string; // Best-selling item
+  serverId?: string;
+  tanggal: Date; // YYYY-MM-DD
+  totalPenjualan: number;
+  totalPesanan: number;
+  totalModal: number; // Cost of goods sold
+  keuntungan: number; // Profit
+  itemTerlaris: string; // Best-selling item
   createdAt: Date;
   syncStatus: 'pending' | 'synced' | 'conflict';
   deviceId: string;
@@ -91,7 +91,7 @@ export interface DailyReport {
 export interface SyncQueue {
   id?: number;
   action: 'CREATE' | 'UPDATE' | 'DELETE';
-  table: 'orders' | 'menuItems' | 'inventoryItems' | 'dailyReports';
+  table: 'pesanan' | 'menu' | 'inventory' | 'dailyReport';
   recordId: number; // Local record ID
   data: any; // JSON payload
   timestamp: number;
@@ -104,8 +104,8 @@ export interface AppSettings {
   id?: number;
   deviceId: string;
   deviceName: string;
-  businessName: string;
-  businessAddress?: string;
+  warungNama: string;
+  warungAlamat?: string;
   userId?: string;
   authToken?: string;
   lastSyncAt?: Date;
@@ -116,30 +116,30 @@ export interface AppSettings {
 
 // ============= DEXIE DATABASE =============
 
-class WarungManagerDB extends Dexie {
-  orders!: Table<Order>;
-  menuItems!: Table<MenuItem>;
-  inventoryItems!: Table<InventoryItem>;
-  dailyReports!: Table<DailyReport>;
+class WarungPosDB extends Dexie {
+  pesanan!: Table<Pesanan>;
+  menu!: Table<Menu>;
+  inventory!: Table<Inventory>;
+  dailyReport!: Table<DailyReport>;
   syncQueue!: Table<SyncQueue>;
   settings!: Table<AppSettings>;
 
   constructor() {
-    super('WarungManagerDB');
+    super('WarungPosDB');
 
     // Define schema version 1
     this.version(1).stores({
-      orders: '++id, serverId, orderDate, status, syncStatus, deviceId',
-      menuItems: '++id, serverId, name, category, available, syncStatus, deviceId',
-      inventoryItems: '++id, serverId, name, category, stock, syncStatus, deviceId',
-      dailyReports: '++id, serverId, reportDate, syncStatus, deviceId',
+      pesanan: '++id, serverId, tanggal, status, syncStatus, deviceId',
+      menu: '++id, serverId, nama, kategori, tersedia, syncStatus, deviceId',
+      inventory: '++id, serverId, nama, kategori, stok, syncStatus, deviceId',
+      dailyReport: '++id, serverId, tanggal, syncStatus, deviceId',
       syncQueue: '++id, table, synced, timestamp',
       settings: '++id, deviceId'
     });
   }
 }
 
-export const db = new WarungManagerDB();
+export const db = new WarungPosDB();
 
 // ============= HELPER FUNCTIONS =============
 
@@ -158,7 +158,7 @@ export async function initializeDevice(): Promise<string> {
     await db.settings.add({
       deviceId,
       deviceName: `Device-${deviceId.slice(0, 8)}`,
-      businessName: 'Warung Saya',
+      warungNama: 'Warung Saya',
       autoSyncEnabled: true,
       createdAt: new Date(),
       updatedAt: new Date()
@@ -178,20 +178,20 @@ export async function seedInitialData(): Promise<void> {
   const deviceId = getDeviceId();
 
   // Check if already seeded
-  const menuCount = await db.menuItems.count();
+  const menuCount = await db.menu.count();
   if (menuCount > 0) return;
 
   const now = new Date();
 
   // Seed inventory
-  await db.inventoryItems.bulkAdd([
+  await db.inventory.bulkAdd([
     {
-      name: 'Beras',
-      category: 'raw_material',
-      stock: 50,
+      nama: 'Beras',
+      kategori: 'bahan_baku',
+      stok: 50,
       unit: 'kg',
-      minimumStock: 10,
-      purchasePrice: 12000,
+      stokMinimum: 10,
+      hargaBeli: 12000,
       supplier: 'Toko Sumber Rejeki',
       createdAt: now,
       updatedAt: now,
@@ -199,12 +199,12 @@ export async function seedInitialData(): Promise<void> {
       deviceId
     },
     {
-      name: 'Minyak Goreng',
-      category: 'raw_material',
-      stock: 20,
+      nama: 'Minyak Goreng',
+      kategori: 'bahan_baku',
+      stok: 20,
       unit: 'liter',
-      minimumStock: 5,
-      purchasePrice: 15000,
+      stokMinimum: 5,
+      hargaBeli: 15000,
       supplier: 'Toko Sumber Rejeki',
       createdAt: now,
       updatedAt: now,
@@ -212,12 +212,12 @@ export async function seedInitialData(): Promise<void> {
       deviceId
     },
     {
-      name: 'Ayam',
-      category: 'raw_material',
-      stock: 15,
+      nama: 'Ayam',
+      kategori: 'bahan_baku',
+      stok: 15,
       unit: 'kg',
-      minimumStock: 3,
-      purchasePrice: 35000,
+      stokMinimum: 3,
+      hargaBeli: 35000,
       supplier: 'Pasar Segar',
       createdAt: now,
       updatedAt: now,
@@ -225,12 +225,12 @@ export async function seedInitialData(): Promise<void> {
       deviceId
     },
     {
-      name: 'Telur',
-      category: 'raw_material',
-      stock: 100,
+      nama: 'Telur',
+      kategori: 'bahan_baku',
+      stok: 100,
       unit: 'pcs',
-      minimumStock: 20,
-      purchasePrice: 2500,
+      stokMinimum: 20,
+      hargaBeli: 2500,
       supplier: 'Pasar Segar',
       createdAt: now,
       updatedAt: now,
@@ -238,12 +238,12 @@ export async function seedInitialData(): Promise<void> {
       deviceId
     },
     {
-      name: 'Teh Celup',
-      category: 'raw_material',
-      stock: 200,
+      nama: 'Teh Celup',
+      kategori: 'bahan_baku',
+      stok: 200,
       unit: 'pcs',
-      minimumStock: 50,
-      purchasePrice: 500,
+      stokMinimum: 50,
+      hargaBeli: 500,
       supplier: 'Toko Grosir',
       createdAt: now,
       updatedAt: now,
@@ -251,12 +251,12 @@ export async function seedInitialData(): Promise<void> {
       deviceId
     },
     {
-      name: 'Gula Pasir',
-      category: 'raw_material',
-      stock: 10,
+      nama: 'Gula Pasir',
+      kategori: 'bahan_baku',
+      stok: 10,
       unit: 'kg',
-      minimumStock: 2,
-      purchasePrice: 14000,
+      stokMinimum: 2,
+      hargaBeli: 14000,
       supplier: 'Toko Grosir',
       createdAt: now,
       updatedAt: now,
@@ -266,25 +266,25 @@ export async function seedInitialData(): Promise<void> {
   ]);
 
   // Get inventory IDs for menu ingredients
-  const berasId = (await db.inventoryItems.where('name').equals('Beras').first())?.id || 1;
-  const minyakId = (await db.inventoryItems.where('name').equals('Minyak Goreng').first())?.id || 2;
-  const ayamId = (await db.inventoryItems.where('name').equals('Ayam').first())?.id || 3;
-  const telurId = (await db.inventoryItems.where('name').equals('Telur').first())?.id || 4;
-  const tehId = (await db.inventoryItems.where('name').equals('Teh Celup').first())?.id || 5;
-  const gulaId = (await db.inventoryItems.where('name').equals('Gula Pasir').first())?.id || 6;
+  const berasId = (await db.inventory.where('nama').equals('Beras').first())?.id || 1;
+  const minyakId = (await db.inventory.where('nama').equals('Minyak Goreng').first())?.id || 2;
+  const ayamId = (await db.inventory.where('nama').equals('Ayam').first())?.id || 3;
+  const telurId = (await db.inventory.where('nama').equals('Telur').first())?.id || 4;
+  const tehId = (await db.inventory.where('nama').equals('Teh Celup').first())?.id || 5;
+  const gulaId = (await db.inventory.where('nama').equals('Gula Pasir').first())?.id || 6;
 
   // Seed menu
-  await db.menuItems.bulkAdd([
+  await db.menu.bulkAdd([
     {
-      name: 'Nasi Goreng',
-      category: 'food',
-      price: 15000,
-      costPrice: 8000,
-      available: true,
+      nama: 'Nasi Goreng',
+      kategori: 'makanan',
+      harga: 15000,
+      hargaModal: 8000,
+      tersedia: true,
       ingredients: [
-        { inventoryId: berasId, inventoryName: 'Beras', quantity: 0.15, unit: 'kg' },
-        { inventoryId: minyakId, inventoryName: 'Minyak Goreng', quantity: 0.02, unit: 'liter' },
-        { inventoryId: telurId, inventoryName: 'Telur', quantity: 1, unit: 'pcs' }
+        { inventoryId: berasId, inventoryNama: 'Beras', qty: 0.15, unit: 'kg' },
+        { inventoryId: minyakId, inventoryNama: 'Minyak Goreng', qty: 0.02, unit: 'liter' },
+        { inventoryId: telurId, inventoryNama: 'Telur', qty: 1, unit: 'pcs' }
       ],
       createdAt: now,
       updatedAt: now,
@@ -292,14 +292,14 @@ export async function seedInitialData(): Promise<void> {
       deviceId
     },
     {
-      name: 'Ayam Goreng',
-      category: 'food',
-      price: 20000,
-      costPrice: 12000,
-      available: true,
+      nama: 'Ayam Goreng',
+      kategori: 'makanan',
+      harga: 20000,
+      hargaModal: 12000,
+      tersedia: true,
       ingredients: [
-        { inventoryId: ayamId, inventoryName: 'Ayam', quantity: 0.25, unit: 'kg' },
-        { inventoryId: minyakId, inventoryName: 'Minyak Goreng', quantity: 0.05, unit: 'liter' }
+        { inventoryId: ayamId, inventoryNama: 'Ayam', qty: 0.25, unit: 'kg' },
+        { inventoryId: minyakId, inventoryNama: 'Minyak Goreng', qty: 0.05, unit: 'liter' }
       ],
       createdAt: now,
       updatedAt: now,
@@ -307,13 +307,13 @@ export async function seedInitialData(): Promise<void> {
       deviceId
     },
     {
-      name: 'Nasi Putih',
-      category: 'food',
-      price: 5000,
-      costPrice: 2000,
-      available: true,
+      nama: 'Nasi Putih',
+      kategori: 'makanan',
+      harga: 5000,
+      hargaModal: 2000,
+      tersedia: true,
       ingredients: [
-        { inventoryId: berasId, inventoryName: 'Beras', quantity: 0.1, unit: 'kg' }
+        { inventoryId: berasId, inventoryNama: 'Beras', qty: 0.1, unit: 'kg' }
       ],
       createdAt: now,
       updatedAt: now,
@@ -321,14 +321,14 @@ export async function seedInitialData(): Promise<void> {
       deviceId
     },
     {
-      name: 'Teh Manis',
-      category: 'beverage',
-      price: 3000,
-      costPrice: 1000,
-      available: true,
+      nama: 'Teh Manis',
+      kategori: 'minuman',
+      harga: 3000,
+      hargaModal: 1000,
+      tersedia: true,
       ingredients: [
-        { inventoryId: tehId, inventoryName: 'Teh Celup', quantity: 1, unit: 'pcs' },
-        { inventoryId: gulaId, inventoryName: 'Gula Pasir', quantity: 0.02, unit: 'kg' }
+        { inventoryId: tehId, inventoryNama: 'Teh Celup', qty: 1, unit: 'pcs' },
+        { inventoryId: gulaId, inventoryNama: 'Gula Pasir', qty: 0.02, unit: 'kg' }
       ],
       createdAt: now,
       updatedAt: now,
@@ -336,14 +336,14 @@ export async function seedInitialData(): Promise<void> {
       deviceId
     },
     {
-      name: 'Es Teh Manis',
-      category: 'beverage',
-      price: 4000,
-      costPrice: 1500,
-      available: true,
+      nama: 'Es Teh Manis',
+      kategori: 'minuman',
+      harga: 4000,
+      hargaModal: 1500,
+      tersedia: true,
       ingredients: [
-        { inventoryId: tehId, inventoryName: 'Teh Celup', quantity: 1, unit: 'pcs' },
-        { inventoryId: gulaId, inventoryName: 'Gula Pasir', quantity: 0.02, unit: 'kg' }
+        { inventoryId: tehId, inventoryNama: 'Teh Celup', qty: 1, unit: 'pcs' },
+        { inventoryId: gulaId, inventoryNama: 'Gula Pasir', qty: 0.02, unit: 'kg' }
       ],
       createdAt: now,
       updatedAt: now,

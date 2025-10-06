@@ -9,12 +9,12 @@ export const clearAllLocalData = async () => {
       console.log('📊 Clearing IndexedDB...');
 
       // Store menu images temporarily
-      const menuData = await db.menu.toArray();
+      const menuData = await db.menuItems.toArray();
       const menuImages = new Map<string, string>();
 
       menuData.forEach(menu => {
-        if (menu.gambar && menu.gambar.startsWith('data:')) {
-          menuImages.set(menu.nama, menu.gambar);
+        if (menu.image && menu.image.startsWith('data:')) {
+          menuImages.set(menu.name, menu.image);
         }
       });
 
@@ -127,15 +127,15 @@ export const clearSpecificLocalData = async (types: {
     // Clear specific IndexedDB tables
     if (db) {
       if (types.orders) {
-        await db.pesanan.clear();
+        await db.orders.clear();
         console.log('📊 Cleared orders from IndexedDB');
       }
       if (types.menu) {
-        await db.menu.clear();
+        await db.menuItems.clear();
         console.log('📋 Cleared menu from IndexedDB');
       }
       if (types.inventory) {
-        await db.inventory.clear();
+        await db.inventoryItems.clear();
         console.log('📦 Cleared inventory from IndexedDB');
       }
     }

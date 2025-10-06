@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ssh tamatopik@103.59.94.185 \"sudo cp /etc/apt/sources.list /etc/apt/sources.list.backup && sudo bash -c ''cat > /etc/apt/sources.list << EOF\ndeb http://archive.ubuntu.com/ubuntu/ noble main restricted universe multiverse\ndeb http://archive.ubuntu.com/ubuntu/ noble-updates main restricted universe multiverse\ndeb http://archive.ubuntu.com/ubuntu/ noble-backports main restricted universe multiverse\ndeb http://security.ubuntu.com/ubuntu noble-security main restricted universe multiverse\nEOF''\")",
+      "Bash(ssh tamatopik@103.59.94.185 \"sudo rm -f /etc/apt/sources.list.d/ubuntu.sources && sudo apt update\")",
+      "Bash(ssh tamatopik@103.59.94.185 \"curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash - && sudo apt install -y nodejs\")",
+      "Bash(ssh tamatopik@103.59.94.185 \"sudo DEBIAN_FRONTEND=noninteractive apt install -y nginx\")",
+      "Bash(ssh tamatopik@103.59.94.185 \"sudo npm install -g pm2\")",
+      "Bash(ssh tamatopik@103.59.94.185 \"sudo DEBIAN_FRONTEND=noninteractive apt install -y git\")",
+      "Bash(ssh tamatopik@103.59.94.185 \"sudo ufw allow OpenSSH && sudo ufw allow ''Nginx Full'' && sudo ufw --force enable && sudo ufw status\")",
+      "Bash(ssh tamatopik@103.59.94.185 \"sudo DEBIAN_FRONTEND=noninteractive apt install -y certbot python3-certbot-nginx\")",
+      "Bash(ssh tamatopik@103.59.94.185 \"echo ''=== System Info ==='' && uname -a && echo '''' && echo ''=== Installed Software ==='' && echo ''Node.js:'' && node --version && echo ''npm:'' && npm --version && echo ''PostgreSQL:'' && sudo -u postgres psql --version && echo ''Nginx:'' && nginx -v && echo ''PM2:'' && pm2 --version && echo ''Git:'' && git --version && echo ''Certbot:'' && certbot --version && echo '''' && echo ''=== Services Status ==='' && sudo systemctl is-active postgresql nginx && echo '''' && echo ''=== Firewall Status ==='' && sudo ufw status | grep -E ''Status|OpenSSH|Nginx''\")",
+      "Bash(scp:*)",
+      "Read(//d/Projects//**)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

@@ -10,7 +10,7 @@ interface SidebarProps {
 
 const menuItems = [
   { icon: Home, label: 'Beranda', path: '/' },
-  { icon: ShoppingCart, label: 'Pesanan', path: '/orders' },
+  { icon: ShoppingCart, label: 'Order', path: '/orders' },
   { icon: ClipboardList, label: 'Status Stok', path: '/stock' },
   { icon: Package, label: 'Bahan Baku', path: '/inventory' },
   { icon: BarChart3, label: 'Laporan', path: '/reports' },
@@ -48,7 +48,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
           {/* Hidden logo/brand for desktop */}
           <div className="hidden lg:block p-6 border-b">
-            <h1 className="text-xl font-bold text-blue-600">{user?.warungNama || 'Warung POS'}</h1>
+            <h1 className="text-xl font-bold text-blue-600">{user?.businessName || 'Warung Manager'}</h1>
             <p className="text-sm text-gray-600 mt-1">{user?.name || ''} • {user?.email || ''}</p>
           </div>
 

@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { db } from '../db/index';
-import { pesanan, dailyReports, syncLogs } from '../db/schema';
+import { orders, dailyReports, syncLogs } from '../db/schema';
 import { eq } from 'drizzle-orm';
 import { authMiddleware } from '../middleware/auth';
 
@@ -20,8 +20,8 @@ reset.delete('/orders', async (c) => {
     // Delete all daily reports for this user
     await db.delete(dailyReports).where(eq(dailyReports.userId, userId));
 
-    // Delete all pesanan for this user
-    const deletedOrders = await db.delete(pesanan).where(eq(pesanan.userId, userId)).returning({ id: pesanan.id });
+    // Delete all orders for this user
+    const deletedOrders = await db.delete(orders).where(eq(orders.userId, userId)).returning({ id: orders.id });
 
     return c.json({
       success: true,
@@ -43,7 +43,7 @@ reset.delete('/all', async (c) => {
     const userId = c.get('userId') as number;
 
     // Import other tables
-    const { menu, inventory } = await import('../db/schema');
+    const { menuItems, inventoryItems } = await import('../db/schema');
 
     // Delete all sync logs for this user
     await db.delete(syncLogs).where(eq(syncLogs.userId, userId));
@@ -51,14 +51,14 @@ reset.delete('/all', async (c) => {
     // Delete all daily reports for this user
     await db.delete(dailyReports).where(eq(dailyReports.userId, userId));
 
-    // Delete all pesanan for this user
-    const deletedOrders = await db.delete(pesanan).where(eq(pesanan.userId, userId)).returning({ id: pesanan.id });
+    // Delete all orders for this user
+    const deletedOrders = await db.delete(orders).where(eq(orders.userId, userId)).returning({ id: orders.id });
 
     // Delete all menu for this user
-    const deletedMenu = await db.delete(menu).where(eq(menu.userId, userId)).returning({ id: menu.id });
+    const deletedMenu = await db.delete(menuItems).where(eq(menuItems.userId, userId)).returning({ id: menuItems.id });
 
     // Delete all inventory for this user
-    const deletedInventory = await db.delete(inventory).where(eq(inventory.userId, userId)).returning({ id: inventory.id });
+    const deletedInventory = await db.delete(inventoryItems).where(eq(inventoryItems.userId, userId)).returning({ id: inventoryItems.id });
 
     return c.json({
       success: true,

@@ -16,7 +16,7 @@ interface SyncQueueItem {
 
 export default function DebugSync() {
   const [queueItems, setQueueItems] = useState<SyncQueueItem[]>([]);
-  const [pesananCount, setPesananCount] = useState(0);
+  const [pesananCount, setOrderCount] = useState(0);
   const [menuCount, setMenuCount] = useState(0);
   const [inventoryCount, setInventoryCount] = useState(0);
 
@@ -24,14 +24,14 @@ export default function DebugSync() {
     const queue = await db.syncQueue.toArray();
     setQueueItems(queue as SyncQueueItem[]);
 
-    const pesanan = await db.pesanan.count();
-    setPesananCount(pesanan);
+    const orders = await db.orders.count();
+    setOrderCount(orders);
 
-    const menu = await db.menu.count();
-    setMenuCount(menu);
+    const menuItems = await db.menuItems.count();
+    setMenuCount(menuItems);
 
-    const inventory = await db.inventory.count();
-    setInventoryCount(inventory);
+    const inventoryItems = await db.inventoryItems.count();
+    setInventoryCount(inventoryItems);
   };
 
   useEffect(() => {
@@ -50,7 +50,7 @@ export default function DebugSync() {
 
       <div className="grid grid-cols-3 gap-4 mb-4">
         <div className="bg-blue-100 p-4 rounded">
-          <h3 className="font-bold">Pesanan (Local)</h3>
+          <h3 className="font-bold">Order (Local)</h3>
           <p className="text-2xl">{pesananCount}</p>
         </div>
         <div className="bg-green-100 p-4 rounded">

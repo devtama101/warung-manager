@@ -15,7 +15,7 @@ class SyncManager {
   // Add item to sync queue
   async addToQueue(
     action: 'CREATE' | 'UPDATE' | 'DELETE',
-    table: 'pesanan' | 'menu' | 'inventory' | 'dailyReport',
+    table: 'orders' | 'menuItems' | 'inventoryItems' | 'dailyReports',
     recordId: number,
     data: any
   ): Promise<void> {
@@ -120,6 +120,13 @@ class SyncManager {
 
     if (!response.data.success) {
       throw new Error(response.data.error || 'Sync failed');
+    }
+
+    // Handle conflict resolution
+    if (response.data.conflict) {
+      console.warn('Sync conflict detected:', response.data);
+      // Conflict data includes serverData that should be used to update local record
+      return response.data;
     }
   }
 

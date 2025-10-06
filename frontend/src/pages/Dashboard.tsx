@@ -30,7 +30,7 @@ export function Dashboard() {
 
     // Load menu count
     const { db } = await import('@/db/schema');
-    const menuItems = await db.menu.where('tersedia').equals(true).count();
+    const menuItems = await db.menuItems.filter(item => item.available).count();
     setTotalMenuItems(menuItems);
   };
 
@@ -39,7 +39,7 @@ export function Dashboard() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Beranda</h1>
-          <p className="text-gray-600 mt-1">Selamat datang di Warung POS</p>
+          <p className="text-gray-600 mt-1">Selamat datang di Warung Manager</p>
         </div>
       </div>
 
@@ -48,7 +48,7 @@ export function Dashboard() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
-              Pesanan Selesai
+              Order Selesai
             </CardTitle>
             <ShoppingCart className="h-4 w-4 text-green-600" />
           </CardHeader>
@@ -61,7 +61,7 @@ export function Dashboard() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
-              Pesanan Menunggu
+              Order Menunggu
             </CardTitle>
             <Clock className="h-4 w-4 text-yellow-600" />
           </CardHeader>
@@ -107,7 +107,7 @@ export function Dashboard() {
           <Link to="/orders/new">
             <Button className="w-full" size="lg">
               <ShoppingCart className="mr-2 h-5 w-5" />
-              Buat Pesanan Baru
+              Buat Order Baru
             </Button>
           </Link>
           <Link to="/inventory">

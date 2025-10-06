@@ -59,7 +59,7 @@ export function WarungLogin() {
               <Store className="w-10 h-10 text-white" />
             </div>
           </div>
-          <CardTitle className="text-2xl font-bold">Warung POS</CardTitle>
+          <CardTitle className="text-2xl font-bold">Warung Manager</CardTitle>
           <p className="text-gray-600 mt-2">Login to access your warung dashboard</p>
         </CardHeader>
 

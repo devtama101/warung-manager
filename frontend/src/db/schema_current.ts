@@ -4,7 +4,7 @@ import Dexie, { Table } from 'dexie';
 
 export interface Order {
   id?: number; // Auto-increment local ID
-  serverId?: number; // ID from server after sync
+  serverId?: string; // ID from server after sync
   tableNumber?: string; // Table number (optional)
   items: OrderItem[];
   total: number;
@@ -29,7 +29,7 @@ export interface OrderItem {
 
 export interface MenuItem {
   id?: number;
-  serverId?: number;
+  serverId?: string;
   name: string;
   description?: string;
   category: 'food' | 'beverage' | 'snack';
@@ -55,7 +55,7 @@ export interface MenuIngredient {
 
 export interface InventoryItem {
   id?: number;
-  serverId?: number;
+  serverId?: string;
   name: string;
   category: 'raw_material' | 'packaging' | 'other';
   stock: number; // Current stock
@@ -74,7 +74,7 @@ export interface InventoryItem {
 
 export interface DailyReport {
   id?: number;
-  serverId?: number;
+  serverId?: string;
   reportDate: Date; // YYYY-MM-DD
   totalSales: number;
   totalOrders: number;

@@ -42,7 +42,7 @@ export function Navbar({ onMenuClick }: NavbarProps) {
             <Menu size={24} />
           </button>
           <Link to="/" className="flex items-center space-x-2 ml-2 lg:ml-0">
-            <span className="text-xl font-bold">Warung POS</span>
+            <span className="text-xl font-bold">Warung Manager</span>
           </Link>
         </div>
 
@@ -68,7 +68,7 @@ export function Navbar({ onMenuClick }: NavbarProps) {
               className="flex items-center space-x-2 px-3 py-2 rounded-md hover:bg-blue-700"
             >
               <User size={20} />
-              <span className="text-sm hidden md:inline">{user?.warungNama}</span>
+              <span className="text-sm hidden md:inline">{user?.businessName}</span>
             </button>
 
             {showUserMenu && (
@@ -79,8 +79,8 @@ export function Navbar({ onMenuClick }: NavbarProps) {
                 />
                 <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50">
                   <div className="px-4 py-2 border-b border-gray-200">
-                    <p className="text-sm font-medium text-gray-900">{user?.warungNama}</p>
-                    <p className="text-xs text-gray-600">{user?.username}</p>
+                    <p className="text-sm font-medium text-gray-900">{user?.businessName}</p>
+                    <p className="text-xs text-gray-600">{user?.name}</p>
                   </div>
                   <button
                     onClick={handleLogout}

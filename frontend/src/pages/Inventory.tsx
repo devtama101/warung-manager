@@ -6,15 +6,15 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter } from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
-import { getAllInventory, addInventory, updateInventory, updateStock, deleteInventory, getLowStockItems } from '@/lib/inventory';
-import { Inventory as InventoryType } from '@/lib/inventory';
+import { getAllInventoryItems, addInventoryItem, updateInventoryItem, updateStock, deleteInventoryItem, getLowStockItems } from '@/lib/inventory';
+import { InventoryItem as InventoryType } from '@/lib/inventory';
 import { formatCurrency, formatNumber } from '@/lib/utils';
 
 export function Inventory() {
   const [inventory, setInventory] = useState<InventoryType[]>([]);
   const [lowStockItems, setLowStockItems] = useState<InventoryType[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<'all' | 'bahan_baku' | 'kemasan' | 'lainnya' | 'low'>('all');
+  const [filter, setFilter] = useState<'all' | 'raw_material' | 'packaging' | 'other' | 'low'>('all');
 
   // Dialog states
   const [addDialogOpen, setAddDialogOpen] = useState(false);
@@ -38,12 +38,12 @@ export function Inventory() {
 
   // Form states
   const [formData, setFormData] = useState({
-    nama: '',
-    kategori: 'bahan_baku' as 'bahan_baku' | 'kemasan' | 'lainnya',
-    stok: '',
+    name: '',
+    category: 'raw_material' as 'raw_material' | 'packaging' | 'other',
+    stock: '',
     unit: '',
-    stokMinimum: '',
-    hargaBeli: '',
+    minimumStock: '',
+    purchasePrice: '',
     supplier: ''
   });
 
@@ -66,7 +66,7 @@ export function Inventory() {
   const loadInventory = async () => {
     setLoading(true);
     try {
-      const data = await getAllInventory();
+      const data = await getAllInventoryItems();
       setInventory(data);
 
       const lowStock = await getLowStockItems();
@@ -78,14 +78,14 @@ export function Inventory() {
 
   const filteredInventory = inventory.filter(item => {
     if (filter === 'all') return true;
-    if (filter === 'low') return item.stok < item.stokMinimum;
-    return item.kategori === filter;
+    if (filter === 'low') return item.stock < item.minimumStock;
+    return item.category === filter;
   });
 
   const getStockBadge = (item: InventoryType) => {
-    if (item.stok === 0) {
+    if (item.stock === 0) {
       return <Badge variant="destructive">Habis</Badge>;
-    } else if (item.stok < item.stokMinimum) {
+    } else if (item.stock < item.minimumStock) {
       return <Badge variant="warning">Menipis</Badge>;
     }
     return <Badge variant="success">Tersedia</Badge>;
@@ -93,27 +93,26 @@ export function Inventory() {
 
   const resetForm = () => {
     setFormData({
-      nama: '',
-      kategori: 'bahan_baku',
-      stok: '',
+      name: '',
+      category: 'raw_material',
+      stock: '',
       unit: '',
-      stokMinimum: '',
-      hargaBeli: '',
+      minimumStock: '',
+      purchasePrice: '',
       supplier: ''
     });
   };
 
   const handleAdd = async () => {
     try {
-      await addInventory({
-        nama: formData.nama,
-        kategori: formData.kategori,
-        stok: parseFloat(formData.stok),
+      await addInventoryItem({
+        name: formData.name,
+        category: formData.category,
+        stock: parseFloat(formData.stock),
         unit: formData.unit,
-        stokMinimum: parseFloat(formData.stokMinimum),
-        hargaBeli: parseFloat(formData.hargaBeli),
-        supplier: formData.supplier || undefined,
-        tanggalBeli: new Date()
+        minimumStock: parseFloat(formData.minimumStock),
+        purchasePrice: parseFloat(formData.purchasePrice),
+        supplier: formData.supplier || undefined
       });
 
       setAddDialogOpen(false);
@@ -128,12 +127,12 @@ export function Inventory() {
   const handleEdit = (item: InventoryType) => {
     setSelectedItem(item);
     setFormData({
-      nama: item.nama,
-      kategori: item.kategori,
-      stok: item.stok.toString(),
+      name: item.name,
+      category: item.category,
+      stock: item.stock.toString(),
       unit: item.unit,
-      stokMinimum: item.stokMinimum.toString(),
-      hargaBeli: item.hargaBeli.toString(),
+      minimumStock: item.minimumStock.toString(),
+      purchasePrice: item.purchasePrice.toString(),
       supplier: item.supplier || ''
     });
     setEditDialogOpen(true);
@@ -143,13 +142,13 @@ export function Inventory() {
     if (!selectedItem?.id) return;
 
     try {
-      await updateInventory(selectedItem.id, {
-        nama: formData.nama,
-        kategori: formData.kategori,
-        stok: parseFloat(formData.stok),
+      await updateInventoryItem(selectedItem.id, {
+        name: formData.name,
+        category: formData.category,
+        stock: parseFloat(formData.stock),
         unit: formData.unit,
-        stokMinimum: parseFloat(formData.stokMinimum),
-        hargaBeli: parseFloat(formData.hargaBeli),
+        minimumStock: parseFloat(formData.minimumStock),
+        purchasePrice: parseFloat(formData.purchasePrice),
         supplier: formData.supplier || undefined
       });
 
@@ -168,10 +167,10 @@ export function Inventory() {
 
     showConfirm(
       'Hapus Item',
-      `Apakah Anda yakin ingin menghapus "${item.nama}"?`,
+      `Apakah Anda yakin ingin menghapus "${item.name}"?`,
       async () => {
         try {
-          await deleteInventory(item.id!);
+          await deleteInventoryItem(item.id!);
           await loadInventory();
           setConfirmOpen(false);
           showAlert('Berhasil!', 'Item berhasil dihapus', 'success');
@@ -231,9 +230,9 @@ export function Inventory() {
             <div className="space-y-2">
               {lowStockItems.map(item => (
                 <div key={item.id} className="flex justify-between items-center text-sm">
-                  <span className="font-medium">{item.nama}</span>
+                  <span className="font-medium">{item.name}</span>
                   <Badge variant="warning">
-                    {formatNumber(item.stok)} {item.unit} (min: {formatNumber(item.stokMinimum)})
+                    {formatNumber(item.stock)} {item.unit} (min: {formatNumber(item.minimumStock)})
                   </Badge>
                 </div>
               ))}
@@ -246,9 +245,9 @@ export function Inventory() {
       <div className="flex space-x-2 border-b overflow-x-auto">
         {[
           { key: 'all', label: 'Semua' },
-          { key: 'bahan_baku', label: 'Bahan Baku' },
-          { key: 'kemasan', label: 'Kemasan' },
-          { key: 'lainnya', label: 'Lainnya' },
+          { key: 'raw_material', label: 'Bahan Baku' },
+          { key: 'packaging', label: 'Kemasan' },
+          { key: 'other', label: 'Lainnya' },
           { key: 'low', label: 'Stok Menipis' }
         ].map(tab => (
           <button
@@ -289,27 +288,27 @@ export function Inventory() {
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center space-x-2 flex-wrap">
-                      <h3 className="text-lg font-semibold">{item.nama}</h3>
+                      <h3 className="text-lg font-semibold">{item.name}</h3>
                       {getStockBadge(item)}
-                      <Badge variant="secondary">{item.kategori.replace('_', ' ')}</Badge>
+                      <Badge variant="secondary">{item.category.replace('_', ' ')}</Badge>
                     </div>
 
                     <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                       <div>
                         <p className="text-gray-600">Stok Saat Ini</p>
                         <p className="font-bold text-lg">
-                          {formatNumber(item.stok)} {item.unit}
+                          {formatNumber(item.stock)} {item.unit}
                         </p>
                       </div>
                       <div>
                         <p className="text-gray-600">Stok Minimum</p>
                         <p className="font-medium">
-                          {formatNumber(item.stokMinimum)} {item.unit}
+                          {formatNumber(item.minimumStock)} {item.unit}
                         </p>
                       </div>
                       <div>
                         <p className="text-gray-600">Harga Beli</p>
-                        <p className="font-medium">{formatCurrency(item.hargaBeli)}</p>
+                        <p className="font-medium">{formatCurrency(item.purchasePrice)}</p>
                       </div>
                       {item.supplier && (
                         <div>
@@ -364,8 +363,8 @@ export function Inventory() {
             <div>
               <label className="block text-sm font-medium mb-1">Nama Item</label>
               <Input
-                value={formData.nama}
-                onChange={(e) => setFormData({ ...formData, nama: e.target.value })}
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 placeholder="Contoh: Beras"
               />
             </div>
@@ -373,13 +372,13 @@ export function Inventory() {
             <div>
               <label className="block text-sm font-medium mb-1">Kategori</label>
               <select
-                value={formData.kategori}
-                onChange={(e) => setFormData({ ...formData, kategori: e.target.value as any })}
+                value={formData.category}
+                onChange={(e) => setFormData({ ...formData, category: e.target.value as any })}
                 className="w-full h-10 rounded-md border border-gray-300 px-3"
               >
-                <option value="bahan_baku">Bahan Baku</option>
-                <option value="kemasan">Kemasan</option>
-                <option value="lainnya">Lainnya</option>
+                <option value="raw_material">Bahan Baku</option>
+                <option value="packaging">Kemasan</option>
+                <option value="other">Lainnya</option>
               </select>
             </div>
 
@@ -388,8 +387,8 @@ export function Inventory() {
                 <label className="block text-sm font-medium mb-1">Stok Awal</label>
                 <Input
                   type="number"
-                  value={formData.stok}
-                  onChange={(e) => setFormData({ ...formData, stok: e.target.value })}
+                  value={formData.stock}
+                  onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
                   placeholder="0"
                 />
               </div>
@@ -408,8 +407,8 @@ export function Inventory() {
                 <label className="block text-sm font-medium mb-1">Stok Minimum</label>
                 <Input
                   type="number"
-                  value={formData.stokMinimum}
-                  onChange={(e) => setFormData({ ...formData, stokMinimum: e.target.value })}
+                  value={formData.minimumStock}
+                  onChange={(e) => setFormData({ ...formData, minimumStock: e.target.value })}
                   placeholder="0"
                 />
               </div>
@@ -417,8 +416,8 @@ export function Inventory() {
                 <label className="block text-sm font-medium mb-1">Harga Beli</label>
                 <Input
                   type="number"
-                  value={formData.hargaBeli}
-                  onChange={(e) => setFormData({ ...formData, hargaBeli: e.target.value })}
+                  value={formData.purchasePrice}
+                  onChange={(e) => setFormData({ ...formData, purchasePrice: e.target.value })}
                   placeholder="0"
                 />
               </div>
@@ -454,21 +453,21 @@ export function Inventory() {
             <div>
               <label className="block text-sm font-medium mb-1">Nama Item</label>
               <Input
-                value={formData.nama}
-                onChange={(e) => setFormData({ ...formData, nama: e.target.value })}
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               />
             </div>
 
             <div>
               <label className="block text-sm font-medium mb-1">Kategori</label>
               <select
-                value={formData.kategori}
-                onChange={(e) => setFormData({ ...formData, kategori: e.target.value as any })}
+                value={formData.category}
+                onChange={(e) => setFormData({ ...formData, category: e.target.value as any })}
                 className="w-full h-10 rounded-md border border-gray-300 px-3"
               >
-                <option value="bahan_baku">Bahan Baku</option>
-                <option value="kemasan">Kemasan</option>
-                <option value="lainnya">Lainnya</option>
+                <option value="raw_material">Bahan Baku</option>
+                <option value="packaging">Kemasan</option>
+                <option value="other">Lainnya</option>
               </select>
             </div>
 
@@ -477,8 +476,8 @@ export function Inventory() {
                 <label className="block text-sm font-medium mb-1">Stok</label>
                 <Input
                   type="number"
-                  value={formData.stok}
-                  onChange={(e) => setFormData({ ...formData, stok: e.target.value })}
+                  value={formData.stock}
+                  onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
                 />
               </div>
               <div>
@@ -495,16 +494,16 @@ export function Inventory() {
                 <label className="block text-sm font-medium mb-1">Stok Minimum</label>
                 <Input
                   type="number"
-                  value={formData.stokMinimum}
-                  onChange={(e) => setFormData({ ...formData, stokMinimum: e.target.value })}
+                  value={formData.minimumStock}
+                  onChange={(e) => setFormData({ ...formData, minimumStock: e.target.value })}
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1">Harga Beli</label>
                 <Input
                   type="number"
-                  value={formData.hargaBeli}
-                  onChange={(e) => setFormData({ ...formData, hargaBeli: e.target.value })}
+                  value={formData.purchasePrice}
+                  onChange={(e) => setFormData({ ...formData, purchasePrice: e.target.value })}
                 />
               </div>
             </div>
@@ -531,14 +530,14 @@ export function Inventory() {
       <Dialog open={stockDialogOpen} onOpenChange={setStockDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Sesuaikan Stok - {selectedItem?.nama}</DialogTitle>
+            <DialogTitle>Sesuaikan Stok - {selectedItem?.name}</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4">
             <div>
               <p className="text-sm text-gray-600">Stok saat ini:</p>
               <p className="text-2xl font-bold">
-                {selectedItem && formatNumber(selectedItem.stok)} {selectedItem?.unit}
+                {selectedItem && formatNumber(selectedItem.stock)} {selectedItem?.unit}
               </p>
             </div>
 

@@ -1,13 +1,13 @@
 {
-  "name": "warung-pos-backend",
+  "name": "warung-manager-backend",
   "version": "1.0.0",
-  "description": "Backend API for Warung POS",
+  "description": "Backend API for Warung Manager",
   "main": "dist/index.js",
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
-    "start": "node dist/index.js",
+    "start": "tsx dist/index.js",
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push"
   },

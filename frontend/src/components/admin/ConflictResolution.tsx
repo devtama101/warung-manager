@@ -11,7 +11,7 @@ import {
   CheckCircle,
   XCircle,
   GitBranch,
-  Device,
+  Smartphone,
   Calendar
 } from 'lucide-react';
 
@@ -191,7 +191,7 @@ export const ConflictResolution: React.FC<ConflictResolutionProps> = ({ userId }
                         <Badge variant="outline">{conflict.conflictType}</Badge>
                       </div>
                       <div className="flex items-center space-x-2 text-sm text-gray-500">
-                        <Device className="h-4 w-4" />
+                        <Smartphone className="h-4 w-4" />
                         <span>{conflict.deviceId}</span>
                         <Calendar className="h-4 w-4 ml-2" />
                         <span>{formatDate(conflict.timestamp)}</span>
@@ -270,7 +270,7 @@ export const ConflictResolution: React.FC<ConflictResolutionProps> = ({ userId }
                         </Badge>
                       </div>
                       <div className="flex items-center space-x-2 text-sm text-gray-500">
-                        <Device className="h-4 w-4" />
+                        <Smartphone className="h-4 w-4" />
                         <span>{conflict.deviceId}</span>
                         <Calendar className="h-4 w-4 ml-2" />
                         <span>{formatDate(conflict.timestamp)}</span>

@@ -1,16 +1,16 @@
-import { db, Pesanan, PesananItem, getDeviceId } from '../db/schema';
+import { db, Order, OrderItem, getDeviceId } from '../db/schema';
 import { syncManager } from './sync';
 import { deductStockFromOrder } from './inventory';
 import { startOfDay, endOfDay } from 'date-fns';
 
-export type { Pesanan, PesananItem };
+export type { Order, OrderItem };
 
 // Create order
-export async function createOrder(orderData: Omit<Pesanan, 'id' | 'createdAt' | 'updatedAt' | 'syncStatus' | 'deviceId'>): Promise<number> {
+export async function createOrder(orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt' | 'syncStatus' | 'deviceId'>): Promise<number> {
   const now = new Date();
   const deviceId = getDeviceId();
 
-  const orderId = await db.pesanan.add({
+  const orderId = await db.orders.add({
     ...orderData,
     createdAt: now,
     updatedAt: now,
@@ -19,7 +19,7 @@ export async function createOrder(orderData: Omit<Pesanan, 'id' | 'createdAt' | 
   });
 
   // Add to sync queue
-  await syncManager.addToQueue('CREATE', 'pesanan', orderId, {
+  await syncManager.addToQueue('CREATE', 'orders', orderId, {
     ...orderData,
     createdAt: now,
     updatedAt: now
@@ -29,13 +29,13 @@ export async function createOrder(orderData: Omit<Pesanan, 'id' | 'createdAt' | 
 }
 
 // Get today's orders
-export async function getTodayOrders(): Promise<Pesanan[]> {
+export async function getTodayOrders(): Promise<Order[]> {
   const today = new Date();
   const startDate = startOfDay(today);
   const endDate = endOfDay(today);
 
-  const orders = await db.pesanan
-    .where('tanggal')
+  const orders = await db.orders
+    .where('orderDate')
     .between(startDate, endDate, true, true)
     .reverse()
     .toArray();
@@ -44,9 +44,9 @@ export async function getTodayOrders(): Promise<Pesanan[]> {
 }
 
 // Get orders by date range
-export async function getOrdersByDateRange(startDate: Date, endDate: Date): Promise<Pesanan[]> {
-  const orders = await db.pesanan
-    .where('tanggal')
+export async function getOrdersByDateRange(startDate: Date, endDate: Date): Promise<Order[]> {
+  const orders = await db.orders
+    .where('orderDate')
     .between(startOfDay(startDate), endOfDay(endDate), true, true)
     .reverse()
     .toArray();
@@ -55,8 +55,8 @@ export async function getOrdersByDateRange(startDate: Date, endDate: Date): Prom
 }
 
 // Get orders by status
-export async function getOrdersByStatus(status: 'pending' | 'completed' | 'cancelled'): Promise<Pesanan[]> {
-  return await db.pesanan
+export async function getOrdersByStatus(status: 'pending' | 'completed' | 'cancelled'): Promise<Order[]> {
+  return await db.orders
     .where('status')
     .equals(status)
     .reverse()
@@ -67,21 +67,21 @@ export async function getOrdersByStatus(status: 'pending' | 'completed' | 'cance
 export async function updateOrderStatus(orderId: number, status: 'pending' | 'completed' | 'cancelled'): Promise<void> {
   const now = new Date();
 
-  await db.pesanan.update(orderId, {
+  await db.orders.update(orderId, {
     status,
     updatedAt: now,
     syncStatus: 'pending'
   });
 
-  const order = await db.pesanan.get(orderId);
+  const order = await db.orders.get(orderId);
   if (order) {
-    await syncManager.addToQueue('UPDATE', 'pesanan', orderId, order);
+    await syncManager.addToQueue('UPDATE', 'orders', orderId, order);
   }
 }
 
 // Complete order (and deduct inventory)
 export async function completeOrder(orderId: number): Promise<void> {
-  const order = await db.pesanan.get(orderId);
+  const order = await db.orders.get(orderId);
   if (!order) {
     throw new Error('Order not found');
   }
@@ -103,12 +103,12 @@ export async function cancelOrder(orderId: number): Promise<void> {
 }
 
 // Get order by ID
-export async function getOrderById(orderId: number): Promise<Pesanan | undefined> {
-  return await db.pesanan.get(orderId);
+export async function getOrderById(orderId: number): Promise<Order | undefined> {
+  return await db.orders.get(orderId);
 }
 
 // Delete order
 export async function deleteOrder(orderId: number): Promise<void> {
-  await db.pesanan.delete(orderId);
-  await syncManager.addToQueue('DELETE', 'pesanan', orderId, { id: orderId });
+  await db.orders.delete(orderId);
+  await syncManager.addToQueue('DELETE', 'orders', orderId, { id: orderId });
 }

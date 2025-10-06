@@ -6,22 +6,22 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter } from '@/components/ui/alert-dialog';
-import { getAvailableMenu } from '@/lib/menu';
-import { Menu } from '@/lib/menu';
+import { getAvailableMenuItems } from '@/lib/menu';
+import { MenuItem } from '@/lib/menu';
 import { createOrder } from '@/lib/orders';
-import { PesananItem } from '@/lib/orders';
+import { OrderItem } from '@/lib/orders';
 import { formatCurrency } from '@/lib/utils';
 
-interface OrderItem extends PesananItem {
+interface CartItem extends OrderItem {
   tempId: string;
 }
 
 export function NewOrder() {
   const navigate = useNavigate();
-  const [menu, setMenu] = useState<Menu[]>([]);
+  const [menu, setMenu] = useState<MenuItem[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
-  const [nomorMeja, setNomorMeja] = useState('');
+  const [orderItems, setOrderItems] = useState<CartItem[]>([]);
+  const [tableNumber, setTableNumber] = useState('');
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
@@ -51,7 +51,7 @@ export function NewOrder() {
   const loadMenu = async () => {
     setLoading(true);
     try {
-      const data = await getAvailableMenu();
+      const data = await getAvailableMenuItems();
       console.log('Loaded menu items:', data);
       setMenu(data);
     } catch (error) {
@@ -63,26 +63,26 @@ export function NewOrder() {
   };
 
   const filteredMenu = menu.filter(item =>
-    item.nama.toLowerCase().includes(searchQuery.toLowerCase())
+    item.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const addToOrder = (menuItem: Menu) => {
+  const addToOrder = (menuItem: MenuItem) => {
     const existingItem = orderItems.find(item => item.menuId === menuItem.id!);
 
     if (existingItem) {
       setOrderItems(orderItems.map(item =>
         item.menuId === menuItem.id!
-          ? { ...item, qty: item.qty + 1, subtotal: (item.qty + 1) * item.harga }
+          ? { ...item, quantity: item.quantity + 1, subtotal: (item.quantity + 1) * item.price }
           : item
       ));
     } else {
       setOrderItems([...orderItems, {
         tempId: crypto.randomUUID(),
         menuId: menuItem.id!,
-        menuNama: menuItem.nama,
-        qty: 1,
-        harga: menuItem.harga,
-        subtotal: menuItem.harga
+        menuName: menuItem.name,
+        quantity: 1,
+        price: menuItem.price,
+        subtotal: menuItem.price
       }]);
     }
   };
@@ -90,8 +90,8 @@ export function NewOrder() {
   const updateQuantity = (tempId: string, delta: number) => {
     setOrderItems(orderItems.map(item => {
       if (item.tempId === tempId) {
-        const newQty = Math.max(1, item.qty + delta);
-        return { ...item, qty: newQty, subtotal: newQty * item.harga };
+        const newQty = Math.max(1, item.quantity + delta);
+        return { ...item, qty: newQty, subtotal: newQty * item.price };
       }
       return item;
     }));
@@ -105,28 +105,28 @@ export function NewOrder() {
 
   const handleSubmit = async () => {
     if (orderItems.length === 0) {
-      showAlert('Pesanan Kosong', 'Tambahkan minimal 1 item ke pesanan', 'error');
+      showAlert('Order Kosong', 'Tambahkan minimal 1 item ke pesanan', 'error');
       return;
     }
 
     setSubmitting(true);
     try {
       await createOrder({
-        nomorMeja: nomorMeja || undefined,
+        tableNumber: tableNumber || undefined,
         items: orderItems.map(item => ({
           menuId: item.menuId,
-          menuNama: item.menuNama,
-          qty: item.qty,
-          harga: item.harga,
+          menuName: item.menuName,
+          quantity: item.quantity,
+          price: item.price,
           subtotal: item.subtotal,
-          catatan: item.catatan
+          notes: item.notes
         })),
         total,
         status: 'pending',
-        tanggal: new Date()
+        orderDate: new Date()
       });
 
-      showAlert('Berhasil!', 'Pesanan berhasil dibuat!', 'success', () => {
+      showAlert('Berhasil!', 'Order berhasil dibuat!', 'success', () => {
         setAlertOpen(false);
         navigate('/orders');
       });
@@ -149,7 +149,7 @@ export function NewOrder() {
           <ArrowLeft size={20} />
         </Button>
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Buat Pesanan Baru</h1>
+          <h1 className="text-3xl font-bold text-gray-900">Buat Order Baru</h1>
           <p className="text-gray-600 mt-1">Pilih menu untuk pesanan</p>
         </div>
       </div>
@@ -198,13 +198,13 @@ export function NewOrder() {
                     >
                       <div className="flex justify-between items-start">
                         <div>
-                          <h3 className="font-semibold">{item.nama}</h3>
+                          <h3 className="font-semibold">{item.name}</h3>
                           <Badge variant="secondary" className="mt-1">
-                            {item.kategori}
+                            {item.category}
                           </Badge>
                         </div>
                         <span className="font-bold text-blue-600">
-                          {formatCurrency(item.harga)}
+                          {formatCurrency(item.price)}
                         </span>
                       </div>
                     </div>
@@ -219,12 +219,12 @@ export function NewOrder() {
         <div className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Detail Pesanan</CardTitle>
+              <CardTitle>Detail Order</CardTitle>
               <Input
                 type="text"
                 placeholder="Nomor Meja (opsional)"
-                value={nomorMeja}
-                onChange={(e) => setNomorMeja(e.target.value)}
+                value={tableNumber}
+                onChange={(e) => setTableNumber(e.target.value)}
                 className="mt-4"
               />
             </CardHeader>
@@ -239,8 +239,8 @@ export function NewOrder() {
                     {orderItems.map(item => (
                       <div key={item.tempId} className="flex items-center justify-between space-x-2 pb-3 border-b">
                         <div className="flex-1">
-                          <p className="font-medium text-sm">{item.menuNama}</p>
-                          <p className="text-xs text-gray-600">{formatCurrency(item.harga)}</p>
+                          <p className="font-medium text-sm">{item.menuName}</p>
+                          <p className="text-xs text-gray-600">{formatCurrency(item.price)}</p>
                         </div>
                         <div className="flex items-center space-x-2">
                           <Button
@@ -251,7 +251,7 @@ export function NewOrder() {
                           >
                             <Minus size={14} />
                           </Button>
-                          <span className="w-8 text-center font-medium">{item.qty}</span>
+                          <span className="w-8 text-center font-medium">{item.quantity}</span>
                           <Button
                             size="icon"
                             variant="outline"
@@ -285,7 +285,7 @@ export function NewOrder() {
                       size="lg"
                       disabled={submitting || orderItems.length === 0}
                     >
-                      {submitting ? 'Membuat Pesanan...' : 'Buat Pesanan'}
+                      {submitting ? 'Membuat Order...' : 'Buat Order'}
                     </Button>
                   </div>
                 </div>

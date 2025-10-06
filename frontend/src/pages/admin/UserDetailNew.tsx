@@ -34,10 +34,10 @@ interface UserDetailData {
   };
   recentOrders: Array<{
     id: number;
-    nomorMeja?: string;
+    tableNumber?: string;
     total: string;
     status: string;
-    tanggal: string;
+    orderDate: string;
     items: any;
   }>;
 }
@@ -241,8 +241,8 @@ export function UserDetailNew() {
                 <tbody>
                   {data.recentOrders.map((order) => (
                     <tr key={order.id} className="border-b last:border-b-0">
-                      <td className="py-3 px-4">{formatDateTime(new Date(order.tanggal))}</td>
-                      <td className="py-3 px-4">{order.nomorMeja || '-'}</td>
+                      <td className="py-3 px-4">{formatDateTime(new Date(order.orderDate))}</td>
+                      <td className="py-3 px-4">{order.tableNumber || '-'}</td>
                       <td className="py-3 px-4">
                         <span className={`px-2 py-1 text-xs rounded-full ${
                           order.status === 'completed' ? 'bg-green-100 text-green-800' :

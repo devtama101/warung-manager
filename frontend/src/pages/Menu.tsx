@@ -7,22 +7,22 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter } from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { MenuCard } from '@/components/ui/menu-card';
-import { getAllMenu, addMenu, updateMenu, deleteMenu, toggleMenuAvailability } from '@/lib/menu';
-import { getAllInventory } from '@/lib/inventory';
-import { Menu as MenuType } from '@/lib/menu';
-import { Inventory } from '@/lib/inventory';
+import { getAllMenuItems, addMenuItem, updateMenuItem, deleteMenuItem, toggleMenuItemAvailability } from '@/lib/menu';
+import { getAllInventoryItems } from '@/lib/inventory';
+import { MenuItem } from '@/lib/menu';
+import { InventoryItem } from '@/lib/inventory';
 import { formatCurrency } from '@/lib/utils';
 
 export function Menu() {
-  const [menuItems, setMenuItems] = useState<MenuType[]>([]);
-  const [inventory, setInventory] = useState<Inventory[]>([]);
+  const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<'all' | 'makanan' | 'minuman' | 'snack'>('all');
+  const [filter, setFilter] = useState<'all' | 'food' | 'beverage' | 'snack'>('all');
 
   // Dialog states
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [selectedItem, setSelectedItem] = useState<MenuType | null>(null);
+  const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
 
   // Alert dialog states
   const [alertOpen, setAlertOpen] = useState(false);
@@ -40,14 +40,14 @@ export function Menu() {
 
   // Form states
   const [formData, setFormData] = useState({
-    nama: '',
-    kategori: 'makanan' as 'makanan' | 'minuman' | 'snack',
-    harga: '',
-    hargaModal: '',
-    deskripsi: '',
-    gambar: '',
-    tersedia: true,
-    ingredients: [] as Array<{ inventoryId: number; inventoryNama: string; qty: string; unit: string }>
+    name: '',
+    category: 'food' as 'food' | 'beverage' | 'snack',
+    price: '',
+    costPrice: '',
+    description: '',
+    image: '',
+    available: true,
+    ingredients: [] as Array<{ inventoryId: number; inventoryName: string; quantity: string; unit: string }>
   });
 
   const [imageError, setImageError] = useState<string>('');
@@ -70,8 +70,8 @@ export function Menu() {
     setLoading(true);
     try {
       const [menuData, inventoryData] = await Promise.all([
-        getAllMenu(),
-        getAllInventory()
+        getAllMenuItems(),
+        getAllInventoryItems()
       ]);
       setMenuItems(menuData);
       setInventory(inventoryData);
@@ -82,18 +82,18 @@ export function Menu() {
 
   const filteredMenu = menuItems.filter(item => {
     if (filter === 'all') return true;
-    return item.kategori === filter;
+    return item.category === filter;
   });
 
   const resetForm = () => {
     setFormData({
-      nama: '',
-      kategori: 'makanan',
-      harga: '',
-      hargaModal: '',
-      deskripsi: '',
-      gambar: '',
-      tersedia: true,
+      name: '',
+      category: 'food',
+      price: '',
+      costPrice: '',
+      description: '',
+      image: '',
+      available: true,
       ingredients: []
     });
     setImageError('');
@@ -121,30 +121,30 @@ export function Menu() {
     // Convert to base64
     const reader = new FileReader();
     reader.onloadend = () => {
-      setFormData({ ...formData, gambar: reader.result as string });
+      setFormData({ ...formData, image: reader.result as string });
     };
     reader.readAsDataURL(file);
   };
 
   const removeImage = () => {
-    setFormData({ ...formData, gambar: '' });
+    setFormData({ ...formData, image: '' });
     setImageError('');
   };
 
   const handleAdd = async () => {
     try {
-      await addMenu({
-        nama: formData.nama,
-        kategori: formData.kategori,
-        harga: parseFloat(formData.harga),
-        hargaModal: formData.hargaModal ? parseFloat(formData.hargaModal) : undefined,
-        deskripsi: formData.deskripsi || undefined,
-        gambar: formData.gambar || undefined,
-        tersedia: formData.tersedia,
+      await addMenuItem({
+        name: formData.name,
+        category: formData.category,
+        price: parseFloat(formData.price),
+        costPrice: formData.costPrice ? parseFloat(formData.costPrice) : 0,
+        description: formData.description || undefined,
+        image: formData.image || undefined,
+        available: formData.available,
         ingredients: formData.ingredients.map(ing => ({
           inventoryId: ing.inventoryId,
-          inventoryNama: ing.inventoryNama,
-          qty: parseFloat(ing.qty),
+          inventoryName: ing.inventoryName,
+          quantity: parseFloat(ing.quantity),
           unit: ing.unit
         }))
       });
@@ -158,20 +158,20 @@ export function Menu() {
     }
   };
 
-  const handleEdit = (item: MenuType) => {
+  const handleEdit = (item: MenuItem) => {
     setSelectedItem(item);
     setFormData({
-      nama: item.nama,
-      kategori: item.kategori,
-      harga: item.harga.toString(),
-      hargaModal: item.hargaModal?.toString() || '',
-      deskripsi: item.deskripsi || '',
-      gambar: item.gambar || '',
-      tersedia: item.tersedia,
+      name: item.name,
+      category: item.category,
+      price: item.price.toString(),
+      costPrice: item.costPrice?.toString() || '',
+      description: item.description || '',
+      image: item.image || '',
+      available: item.available,
       ingredients: item.ingredients.map(ing => ({
         inventoryId: ing.inventoryId,
-        inventoryNama: ing.inventoryNama,
-        qty: ing.qty.toString(),
+        inventoryName: ing.inventoryName,
+        quantity: ing.quantity.toString(),
         unit: ing.unit
       }))
     });
@@ -182,18 +182,18 @@ export function Menu() {
     if (!selectedItem?.id) return;
 
     try {
-      await updateMenu(selectedItem.id, {
-        nama: formData.nama,
-        kategori: formData.kategori,
-        harga: parseFloat(formData.harga),
-        hargaModal: formData.hargaModal ? parseFloat(formData.hargaModal) : undefined,
-        deskripsi: formData.deskripsi || undefined,
-        gambar: formData.gambar || undefined,
-        tersedia: formData.tersedia,
+      await updateMenuItem(selectedItem.id, {
+        name: formData.name,
+        category: formData.category,
+        price: parseFloat(formData.price),
+        costPrice: formData.costPrice ? parseFloat(formData.costPrice) : 0,
+        description: formData.description || undefined,
+        image: formData.image || undefined,
+        available: formData.available,
         ingredients: formData.ingredients.map(ing => ({
           inventoryId: ing.inventoryId,
-          inventoryNama: ing.inventoryNama,
-          qty: parseFloat(ing.qty),
+          inventoryName: ing.inventoryName,
+          quantity: parseFloat(ing.quantity),
           unit: ing.unit
         }))
       });
@@ -208,15 +208,15 @@ export function Menu() {
     }
   };
 
-  const handleDelete = (item: MenuType) => {
+  const handleDelete = (item: MenuItem) => {
     if (!item.id) return;
 
     showConfirm(
       'Hapus Menu',
-      `Apakah Anda yakin ingin menghapus "${item.nama}"?`,
+      `Apakah Anda yakin ingin menghapus "${item.name}"?`,
       async () => {
         try {
-          await deleteMenu(item.id!);
+          await deleteMenuItem(item.id!);
           await loadData();
           setConfirmOpen(false);
           showAlert('Berhasil!', 'Menu berhasil dihapus', 'success');
@@ -228,11 +228,11 @@ export function Menu() {
     );
   };
 
-  const handleToggleAvailability = async (item: MenuType) => {
+  const handleToggleAvailability = async (item: MenuItem) => {
     if (!item.id) return;
 
     try {
-      await toggleMenuAvailability(item.id);
+      await toggleMenuItemAvailability(item.id);
       await loadData();
     } catch (error) {
       showAlert('Gagal', 'Gagal mengubah status menu', 'error');
@@ -242,7 +242,7 @@ export function Menu() {
   const addIngredient = () => {
     setFormData({
       ...formData,
-      ingredients: [...formData.ingredients, { inventoryId: 0, inventoryNama: '', qty: '', unit: '' }]
+      ingredients: [...formData.ingredients, { inventoryId: 0, inventoryName: '', quantity: '', unit: '' }]
     });
   };
 
@@ -262,7 +262,7 @@ export function Menu() {
         newIngredients[index] = {
           ...newIngredients[index],
           inventoryId: selectedInventory.id!,
-          inventoryNama: selectedInventory.nama,
+          inventoryName: selectedInventory.name,
           unit: selectedInventory.unit
         };
       }
@@ -330,13 +330,13 @@ export function Menu() {
             <MenuCard
               key={item.id}
               id={item.id}
-              nama={item.nama}
-              kategori={item.kategori}
-              harga={item.harga}
-              hargaModal={item.hargaModal}
-              deskripsi={item.deskripsi}
-              gambar={item.gambar}
-              tersedia={item.tersedia}
+              name={item.name}
+              category={item.category}
+              price={item.price}
+              costPrice={item.costPrice}
+              description={item.description}
+              image={item.image}
+              available={item.available}
               ingredients={item.ingredients}
               onEdit={() => handleEdit(item)}
               onDelete={() => handleDelete(item)}
@@ -364,8 +364,8 @@ export function Menu() {
             <div>
               <label className="block text-sm font-medium mb-1">Nama Menu</label>
               <Input
-                value={formData.nama}
-                onChange={(e) => setFormData({ ...formData, nama: e.target.value })}
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 placeholder="Contoh: Nasi Goreng"
               />
             </div>
@@ -373,8 +373,8 @@ export function Menu() {
             <div>
               <label className="block text-sm font-medium mb-1">Deskripsi</label>
               <textarea
-                value={formData.deskripsi}
-                onChange={(e) => setFormData({ ...formData, deskripsi: e.target.value })}
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 placeholder="Deskripsi singkat menu..."
                 className="w-full min-h-[80px] rounded-md border border-gray-300 px-3 py-2 text-sm resize-y"
                 rows={3}
@@ -385,12 +385,12 @@ export function Menu() {
               <div>
                 <label className="block text-sm font-medium mb-1">Kategori</label>
                 <select
-                  value={formData.kategori}
-                  onChange={(e) => setFormData({ ...formData, kategori: e.target.value as any })}
+                  value={formData.category}
+                  onChange={(e) => setFormData({ ...formData, category: e.target.value as any })}
                   className="w-full h-10 rounded-md border border-gray-300 px-3"
                 >
-                  <option value="makanan">Makanan</option>
-                  <option value="minuman">Minuman</option>
+                  <option value="food">Makanan</option>
+                  <option value="beverage">Minuman</option>
                   <option value="snack">Snack</option>
                 </select>
               </div>
@@ -398,8 +398,8 @@ export function Menu() {
                 <label className="block text-sm font-medium mb-1">Harga Jual</label>
                 <Input
                   type="number"
-                  value={formData.harga}
-                  onChange={(e) => setFormData({ ...formData, harga: e.target.value })}
+                  value={formData.price}
+                  onChange={(e) => setFormData({ ...formData, price: e.target.value })}
                   placeholder="0"
                 />
               </div>
@@ -409,8 +409,8 @@ export function Menu() {
               <label className="block text-sm font-medium mb-1">Harga Modal (Opsional)</label>
               <Input
                 type="number"
-                value={formData.hargaModal}
-                onChange={(e) => setFormData({ ...formData, hargaModal: e.target.value })}
+                value={formData.costPrice}
+                onChange={(e) => setFormData({ ...formData, costPrice: e.target.value })}
                 placeholder="0"
               />
             </div>
@@ -418,10 +418,10 @@ export function Menu() {
             <div>
               <label className="block text-sm font-medium mb-1">Gambar Menu</label>
               <div className="space-y-2">
-                {formData.gambar ? (
+                {formData.image ? (
                   <div className="relative inline-block">
                     <img
-                      src={formData.gambar}
+                      src={formData.image}
                       alt="Preview"
                       className="w-full max-w-xs h-48 object-cover rounded-md border"
                     />
@@ -457,8 +457,8 @@ export function Menu() {
               <input
                 type="checkbox"
                 id="tersedia"
-                checked={formData.tersedia}
-                onChange={(e) => setFormData({ ...formData, tersedia: e.target.checked })}
+                checked={formData.available}
+                onChange={(e) => setFormData({ ...formData, available: e.target.checked })}
                 className="w-4 h-4"
               />
               <label htmlFor="tersedia" className="text-sm font-medium">
@@ -486,14 +486,14 @@ export function Menu() {
                       <option value="">Pilih Bahan</option>
                       {inventory.map(inv => (
                         <option key={inv.id} value={inv.id}>
-                          {inv.nama} ({inv.unit})
+                          {inv.name} ({inv.unit})
                         </option>
                       ))}
                     </select>
                     <Input
                       type="number"
                       placeholder="Qty"
-                      value={ing.qty}
+                      value={ing.quantity}
                       onChange={(e) => updateIngredient(index, 'qty', e.target.value)}
                       className="w-24"
                     />

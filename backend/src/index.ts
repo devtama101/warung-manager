@@ -4,7 +4,7 @@ import { cors } from 'hono/cors';
 import 'dotenv/config';
 import { readFile } from 'fs/promises';
 import { db } from './db/index';
-import { devices, pesanan, menu, inventory, syncLogs, dailyReports, conflictLogs, inventoryEvents } from './db/schema';
+import { devices, orders, menuItems, inventoryItems, syncLogs, dailyReports, conflictLogs, inventoryEvents } from './db/schema';
 import { eq } from 'drizzle-orm';
 import authRoutes from './routes/auth';
 import adminRoutes from './routes/admin';
@@ -17,11 +17,19 @@ import './types';
 
 const app = new Hono();
 
-// Enable CORS
+// Enable CORS with proper security
+const allowedOrigins = [
+  'http://localhost:3002',
+  'http://localhost:5173', // Vite dev server
+  'http://localhost:3000',
+  process.env.FRONTEND_URL
+].filter(Boolean);
+
 app.use('/*', cors({
-  origin: '*',
+  origin: allowedOrigins,
   allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowHeaders: ['Content-Type', 'Authorization']
+  allowHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
 }));
 
 // Health check
@@ -29,14 +37,14 @@ app.get('/health', (c) => {
   return c.json({
     status: 'ok',
     timestamp: new Date().toISOString(),
-    service: 'Warung POS API'
+    service: 'Warung Manager API'
   });
 });
 
 // Root endpoint
 app.get('/', (c) => {
   return c.json({
-    message: 'Warung POS API',
+    message: 'Warung Manager API',
     version: '1.0.0',
     endpoints: {
       health: '/health',
@@ -75,7 +83,7 @@ app.get('/uploads/*', async (c) => {
     const fileBuffer = await readFile(filePath);
 
     // Return file with appropriate content type
-    return new Response(fileBuffer, {
+    return new Response(fileBuffer.buffer as ArrayBuffer, {
       headers: {
         'Content-Type': path.endsWith('.jpg') || path.endsWith('.jpeg') ? 'image/jpeg' :
                       path.endsWith('.png') ? 'image/png' :
@@ -97,7 +105,7 @@ app.post('/api/sync/:table', authMiddleware, async (c) => {
     const userId = c.get('userId') as number;
 
     // Validate table name
-    const validTables = ['pesanan', 'menu', 'inventory', 'dailyReport'];
+    const validTables = ['orders', 'menuItems', 'inventoryItems', 'dailyReports'];
     if (!validTables.includes(table)) {
       return c.json({ error: 'Invalid table' }, 400);
     }
@@ -127,17 +135,17 @@ app.post('/api/sync/:table', authMiddleware, async (c) => {
 
     try {
       switch (table) {
-        case 'pesanan':
-          result = await handlePesananSync(action, userId, deviceId, data);
+        case 'orders':
+          result = await handleOrdersSync(action, userId, deviceId, data);
           break;
-        case 'menu':
-          result = await handleMenuSync(action, userId, deviceId, data);
+        case 'menuItems':
+          result = await handleMenuItemsSync(action, userId, deviceId, data);
           break;
-        case 'inventory':
-          result = await handleInventorySync(action, userId, deviceId, data);
+        case 'inventoryItems':
+          result = await handleInventoryItemsSync(action, userId, deviceId, data);
           break;
-        case 'dailyReport':
-          result = await handleDailyReportSync(action, userId, deviceId, data);
+        case 'dailyReports':
+          result = await handleDailyReportsSync(action, userId, deviceId, data);
           break;
         default:
           return c.json({ error: 'Invalid table' }, 400);
@@ -189,237 +197,237 @@ app.post('/api/sync/:table', authMiddleware, async (c) => {
 });
 
 // Helper functions for handling sync operations
-async function handlePesananSync(action: string, userId: number, deviceId: string, data: any) {
+async function handleOrdersSync(action: string, userId: number, deviceId: string, data: any) {
   try {
     switch (action) {
       case 'CREATE':
-        const [newPesanan] = await db.insert(pesanan).values({
+        const [newOrder] = await db.insert(orders).values({
           userId,
           deviceId,
           localId: data.id,
-          nomorMeja: data.nomorMeja,
+          tableNumber: data.tableNumber,
           items: data.items,
           total: data.total,
           status: data.status,
-          tanggal: new Date(data.tanggal),
+          orderDate: new Date(data.orderDate),
           createdAt: new Date(data.createdAt),
           updatedAt: new Date(data.updatedAt),
           version: 1,
           lastModifiedBy: deviceId
-        }).returning({ id: pesanan.id });
-        console.log(`Created pesanan with localId ${data.id}, serverId ${newPesanan.id}`);
-        return { success: true, serverId: newPesanan.id };
+        }).returning({ id: orders.id });
+        console.log(`Created order with localId ${data.id}, serverId ${newOrder.id}`);
+        return { success: true, serverId: newOrder.id };
 
       case 'UPDATE':
-        // Check if pesanan exists, if not create it
-        const existingPesanan = await db.query.pesanan.findFirst({
-          where: eq(pesanan.localId, data.id)
+        // Check if order exists, if not create it
+        const existingOrder = await db.query.orders.findFirst({
+          where: eq(orders.localId, data.id)
         });
 
-        if (existingPesanan) {
+        if (existingOrder) {
           // Optimistic locking: check version
           const clientVersion = data.version || 1;
-          if (existingPesanan.version !== clientVersion) {
+          if (existingOrder.version !== clientVersion) {
             // Version conflict - log it
             await db.insert(conflictLogs).values({
               userId,
               deviceId,
-              entityType: 'pesanan',
-              entityId: existingPesanan.id,
+              entityType: 'orders',
+              entityId: existingOrder.id,
               conflictType: 'VERSION_MISMATCH',
               clientData: data,
-              serverData: existingPesanan,
+              serverData: existingOrder,
               resolution: 'SERVER_WINS',
               resolvedBy: 'system',
               timestamp: new Date(),
               resolvedAt: new Date(),
-              notes: `Client version ${clientVersion} vs Server version ${existingPesanan.version}`
+              notes: `Client version ${clientVersion} vs Server version ${existingOrder.version}`
             });
 
-            console.warn(`Version conflict for pesanan localId ${data.id}: client ${clientVersion} vs server ${existingPesanan.version}`);
+            console.warn(`Version conflict for order localId ${data.id}: client ${clientVersion} vs server ${existingOrder.version}`);
 
             // Return server data with conflict flag
             return {
               success: true,
-              serverId: existingPesanan.id,
+              serverId: existingOrder.id,
               conflict: true,
-              serverData: existingPesanan,
+              serverData: existingOrder,
               message: 'Version conflict resolved with server data'
             };
           }
 
           // Update with version increment
-          await db.update(pesanan)
+          await db.update(orders)
             .set({
               status: data.status,
               updatedAt: new Date(data.updatedAt),
-              version: existingPesanan.version + 1,
+              version: existingOrder.version + 1,
               lastModifiedBy: deviceId
             })
-            .where(eq(pesanan.localId, data.id));
-          console.log(`Updated existing pesanan with localId ${data.id}, serverId ${existingPesanan.id}, version ${existingPesanan.version + 1}`);
-          return { success: true, serverId: existingPesanan.id };
+            .where(eq(orders.localId, data.id));
+          console.log(`Updated existing order with localId ${data.id}, serverId ${existingOrder.id}, version ${existingOrder.version + 1}`);
+          return { success: true, serverId: existingOrder.id };
         } else {
-          const [newPesanan] = await db.insert(pesanan).values({
+          const [newOrder] = await db.insert(orders).values({
             userId,
             deviceId,
             localId: data.id,
-            nomorMeja: data.nomorMeja,
+            tableNumber: data.tableNumber,
             items: data.items,
             total: data.total,
             status: data.status,
-            tanggal: new Date(data.tanggal),
+            orderDate: new Date(data.orderDate),
             createdAt: new Date(data.createdAt),
             updatedAt: new Date(data.updatedAt),
             version: 1,
             lastModifiedBy: deviceId
-          }).returning({ id: pesanan.id });
-          console.log(`Created new pesanan with localId ${data.id}, serverId ${newPesanan.id}`);
-          return { success: true, serverId: newPesanan.id };
+          }).returning({ id: orders.id });
+          console.log(`Created new order with localId ${data.id}, serverId ${newOrder.id}`);
+          return { success: true, serverId: newOrder.id };
         }
 
       default:
         return { success: false, error: 'Invalid action' };
     }
   } catch (error) {
-    console.error('Pesanan sync error:', error);
-    return { success: false, error: 'Failed to sync pesanan' };
+    console.error('Order sync error:', error);
+    return { success: false, error: 'Failed to sync order' };
   }
 }
 
-async function handleMenuSync(action: string, userId: number, deviceId: string, data: any) {
+async function handleMenuItemsSync(action: string, userId: number, deviceId: string, data: any) {
   try {
     switch (action) {
       case 'CREATE':
-        const [newMenu] = await db.insert(menu).values({
+        const [newMenuItem] = await db.insert(menuItems).values({
           userId,
           deviceId,
           localId: data.id,
-          nama: data.nama,
-          kategori: data.kategori,
-          harga: data.harga,
-          tersedia: data.tersedia,
-          gambar: data.gambar,
+          name: data.name,
+          category: data.category,
+          price: data.price,
+          available: data.available,
+          image: data.image,
           ingredients: data.ingredients,
           createdAt: new Date(data.createdAt),
           updatedAt: new Date(data.updatedAt),
           version: 1,
           lastModifiedBy: deviceId
-        }).returning({ id: menu.id });
-        console.log(`Created menu with localId ${data.id}, serverId ${newMenu.id}`);
-        return { success: true, serverId: newMenu.id };
+        }).returning({ id: menuItems.id });
+        console.log(`Created menu item with localId ${data.id}, serverId ${newMenuItem.id}`);
+        return { success: true, serverId: newMenuItem.id };
 
       case 'UPDATE':
-        // Check if menu exists, if not create it
-        const existingMenu = await db.query.menu.findFirst({
-          where: eq(menu.localId, data.id)
+        // Check if menu item exists, if not create it
+        const existingMenuItem = await db.query.menuItems.findFirst({
+          where: eq(menuItems.localId, data.id)
         });
 
-        if (existingMenu) {
+        if (existingMenuItem) {
           // Optimistic locking: check version
           const clientVersion = data.version || 1;
-          if (existingMenu.version !== clientVersion) {
+          if (existingMenuItem.version !== clientVersion) {
             // Version conflict - log it
             await db.insert(conflictLogs).values({
               userId,
               deviceId,
-              entityType: 'menu',
-              entityId: existingMenu.id,
+              entityType: 'menuItems',
+              entityId: existingMenuItem.id,
               conflictType: 'VERSION_MISMATCH',
               clientData: data,
-              serverData: existingMenu,
+              serverData: existingMenuItem,
               resolution: 'SERVER_WINS',
               resolvedBy: 'system',
               timestamp: new Date(),
               resolvedAt: new Date(),
-              notes: `Client version ${clientVersion} vs Server version ${existingMenu.version}`
+              notes: `Client version ${clientVersion} vs Server version ${existingMenuItem.version}`
             });
 
-            console.warn(`Version conflict for menu localId ${data.id}: client ${clientVersion} vs server ${existingMenu.version}`);
+            console.warn(`Version conflict for menu item localId ${data.id}: client ${clientVersion} vs server ${existingMenuItem.version}`);
 
             // Return server data with conflict flag
             return {
               success: true,
-              serverId: existingMenu.id,
+              serverId: existingMenuItem.id,
               conflict: true,
-              serverData: existingMenu,
+              serverData: existingMenuItem,
               message: 'Version conflict resolved with server data'
             };
           }
 
           // Update with version increment
-          await db.update(menu)
+          await db.update(menuItems)
             .set({
-              nama: data.nama,
-              kategori: data.kategori,
-              harga: data.harga,
-              tersedia: data.tersedia,
-              gambar: data.gambar,
+              name: data.name,
+              category: data.category,
+              price: data.price,
+              available: data.available,
+              image: data.image,
               ingredients: data.ingredients,
               updatedAt: new Date(data.updatedAt),
-              version: existingMenu.version + 1,
+              version: existingMenuItem.version + 1,
               lastModifiedBy: deviceId
             })
-            .where(eq(menu.localId, data.id));
-          console.log(`Updated existing menu with localId ${data.id}, serverId ${existingMenu.id}, version ${existingMenu.version + 1}`);
-          return { success: true, serverId: existingMenu.id };
+            .where(eq(menuItems.localId, data.id));
+          console.log(`Updated existing menu item with localId ${data.id}, serverId ${existingMenuItem.id}, version ${existingMenuItem.version + 1}`);
+          return { success: true, serverId: existingMenuItem.id };
         } else {
-          const [newMenu] = await db.insert(menu).values({
+          const [newMenuItem] = await db.insert(menuItems).values({
             userId,
             deviceId,
             localId: data.id,
-            nama: data.nama,
-            kategori: data.kategori,
-            harga: data.harga,
-            tersedia: data.tersedia,
-            gambar: data.gambar,
+            name: data.name,
+            category: data.category,
+            price: data.price,
+            available: data.available,
+            image: data.image,
             ingredients: data.ingredients,
             createdAt: new Date(data.createdAt),
             updatedAt: new Date(data.updatedAt),
             version: 1,
             lastModifiedBy: deviceId
-          }).returning({ id: menu.id });
-          console.log(`Created new menu with localId ${data.id}, serverId ${newMenu.id}`);
-          return { success: true, serverId: newMenu.id };
+          }).returning({ id: menuItems.id });
+          console.log(`Created new menu item with localId ${data.id}, serverId ${newMenuItem.id}`);
+          return { success: true, serverId: newMenuItem.id };
         }
 
       default:
         return { success: false, error: 'Invalid action' };
     }
   } catch (error) {
-    console.error('Menu sync error:', error);
-    return { success: false, error: 'Failed to sync menu' };
+    console.error('Menu item sync error:', error);
+    return { success: false, error: 'Failed to sync menu item' };
   }
 }
 
-async function handleInventorySync(action: string, userId: number, deviceId: string, data: any) {
+async function handleInventoryItemsSync(action: string, userId: number, deviceId: string, data: any) {
   try {
     switch (action) {
       case 'CREATE':
-        const [newInventory] = await db.insert(inventory).values({
+        const [newInventoryItem] = await db.insert(inventoryItems).values({
           userId,
           deviceId,
           localId: data.id,
-          nama: data.nama,
-          kategori: data.kategori,
-          stok: data.stok,
+          name: data.name,
+          category: data.category,
+          stock: data.stock,
           unit: data.unit,
-          stokMinimum: data.stokMinimum,
-          hargaBeli: data.hargaBeli,
+          minimumStock: data.minimumStock,
+          purchasePrice: data.purchasePrice,
           supplier: data.supplier,
-          tanggalBeli: data.tanggalBeli ? new Date(data.tanggalBeli) : null,
+          purchaseDate: data.purchaseDate ? new Date(data.purchaseDate) : null,
           createdAt: new Date(data.createdAt),
           updatedAt: new Date(data.updatedAt),
           version: 1,
           lastModifiedBy: deviceId
-        }).returning({ id: inventory.id });
+        }).returning({ id: inventoryItems.id });
 
         // Create initial inventory event
         await db.insert(inventoryEvents).values({
           userId,
-          inventoryId: newInventory.id,
+          inventoryId: newInventoryItem.id,
           eventType: 'INITIAL',
-          quantity: data.stok,
+          quantity: data.stock,
           unit: data.unit,
           reason: 'Initial stock setup',
           referenceType: 'manual_setup',
@@ -429,111 +437,111 @@ async function handleInventorySync(action: string, userId: number, deviceId: str
           version: 1
         });
 
-        console.log(`Created inventory with localId ${data.id}, serverId ${newInventory.id}`);
-        return { success: true, serverId: newInventory.id };
+        console.log(`Created inventory item with localId ${data.id}, serverId ${newInventoryItem.id}`);
+        return { success: true, serverId: newInventoryItem.id };
 
       case 'UPDATE':
-        // Check if inventory exists, if not create it
-        const existingInventory = await db.query.inventory.findFirst({
-          where: eq(inventory.localId, data.id)
+        // Check if inventory item exists, if not create it
+        const existingInventoryItem = await db.query.inventoryItems.findFirst({
+          where: eq(inventoryItems.localId, data.id)
         });
 
-        if (existingInventory) {
+        if (existingInventoryItem) {
           // Optimistic locking: check version
           const clientVersion = data.version || 1;
-          if (existingInventory.version !== clientVersion) {
+          if (existingInventoryItem.version !== clientVersion) {
             // Version conflict - log it
             await db.insert(conflictLogs).values({
               userId,
               deviceId,
-              entityType: 'inventory',
-              entityId: existingInventory.id,
+              entityType: 'inventoryItems',
+              entityId: existingInventoryItem.id,
               conflictType: 'VERSION_MISMATCH',
               clientData: data,
-              serverData: existingInventory,
+              serverData: existingInventoryItem,
               resolution: 'SERVER_WINS',
               resolvedBy: 'system',
               timestamp: new Date(),
               resolvedAt: new Date(),
-              notes: `Client version ${clientVersion} vs Server version ${existingInventory.version}`
+              notes: `Client version ${clientVersion} vs Server version ${existingInventoryItem.version}`
             });
 
-            console.warn(`Version conflict for inventory localId ${data.id}: client ${clientVersion} vs server ${existingInventory.version}`);
+            console.warn(`Version conflict for inventory item localId ${data.id}: client ${clientVersion} vs server ${existingInventoryItem.version}`);
 
             // Return server data with conflict flag
             return {
               success: true,
-              serverId: existingInventory.id,
+              serverId: existingInventoryItem.id,
               conflict: true,
-              serverData: existingInventory,
+              serverData: existingInventoryItem,
               message: 'Version conflict resolved with server data'
             };
           }
 
           // Calculate stock difference for event sourcing
-          const stockDiff = Number(data.stok) - Number(existingInventory.stok);
+          const stockDiff = Number(data.stock) - Number(existingInventoryItem.stock);
 
           // Update with version increment
-          await db.update(inventory)
+          await db.update(inventoryItems)
             .set({
-              nama: data.nama,
-              kategori: data.kategori,
-              stok: data.stok,
+              name: data.name,
+              category: data.category,
+              stock: data.stock,
               unit: data.unit,
-              stokMinimum: data.stokMinimum,
-              hargaBeli: data.hargaBeli,
+              minimumStock: data.minimumStock,
+              purchasePrice: data.purchasePrice,
               supplier: data.supplier,
-              tanggalBeli: data.tanggalBeli ? new Date(data.tanggalBeli) : null,
+              purchaseDate: data.purchaseDate ? new Date(data.purchaseDate) : null,
               updatedAt: new Date(data.updatedAt),
-              version: existingInventory.version + 1,
+              version: existingInventoryItem.version + 1,
               lastModifiedBy: deviceId
             })
-            .where(eq(inventory.localId, data.id));
+            .where(eq(inventoryItems.localId, data.id));
 
           // Create inventory event for stock change
           if (stockDiff !== 0) {
             await db.insert(inventoryEvents).values({
               userId,
-              inventoryId: existingInventory.id,
+              inventoryId: existingInventoryItem.id,
               eventType: stockDiff > 0 ? 'STOCK_IN' : 'STOCK_OUT',
-              quantity: Math.abs(stockDiff),
+              quantity: Math.abs(stockDiff).toString(),
               unit: data.unit,
               reason: 'Manual adjustment',
               referenceType: 'manual_adjustment',
               deviceId,
               timestamp: new Date(),
               syncedAt: new Date(),
-              version: existingInventory.version + 1
+              version: existingInventoryItem.version + 1
             });
           }
 
-          console.log(`Updated existing inventory with localId ${data.id}, serverId ${existingInventory.id}, version ${existingInventory.version + 1}`);
-          return { success: true, serverId: existingInventory.id };
+          console.log(`Updated existing inventory item with localId ${data.id}, serverId ${existingInventoryItem.id}, version ${existingInventoryItem.version + 1}`);
+          return { success: true, serverId: existingInventoryItem.id };
         } else {
-          const [newInventory] = await db.insert(inventory).values({
+          const [newInventoryItem] = await db.insert(inventoryItems).values({
             userId,
             deviceId,
             localId: data.id,
-            nama: data.nama,
-            kategori: data.kategori,
-            stok: data.stok,
+            name: data.name,
+            category: data.category,
+            stock: data.stock,
             unit: data.unit,
-            stokMinimum: data.stokMinimum,
-            hargaBeli: data.hargaBeli,
+            minimumStock: data.minimumStock,
+            purchasePrice: data.purchasePrice,
             supplier: data.supplier,
-            tanggalBeli: data.tanggalBeli ? new Date(data.tanggalBeli) : null,
+            purchaseDate: data.purchaseDate ? new Date(data.purchaseDate) : null,
             createdAt: new Date(data.createdAt),
             updatedAt: new Date(data.updatedAt),
             version: 1,
             lastModifiedBy: deviceId
-          }).returning({ id: inventory.id });
+          }).returning({ id: inventoryItems.id });
 
           // Create initial inventory event
           await db.insert(inventoryEvents).values({
             userId,
-            inventoryId: newInventory.id,
+            inventoryId: newInventoryItem.id,
             eventType: 'INITIAL',
-            quantity: data.stok,
+            quantity: data.stock,
             unit: data.unit,
             reason: 'Initial stock setup',
             referenceType: 'manual_setup',
@@ -543,69 +551,71 @@ async function handleInventorySync(action: string, userId: number, deviceId: str
             version: 1
           });
 
-          console.log(`Created new inventory with localId ${data.id}, serverId ${newInventory.id}`);
-          return { success: true, serverId: newInventory.id };
+          console.log(`Created new inventory item with localId ${data.id}, serverId ${newInventoryItem.id}`);
+          return { success: true, serverId: newInventoryItem.id };
         }
 
       default:
         return { success: false, error: 'Invalid action' };
     }
   } catch (error) {
-    console.error('Inventory sync error:', error);
-    return { success: false, error: 'Failed to sync inventory' };
+    console.error('Inventory item sync error:', error);
+    return { success: false, error: 'Failed to sync inventory item' };
   }
 }
 
-async function handleDailyReportSync(action: string, userId: number, deviceId: string, data: any) {
+async function handleDailyReportsSync(action: string, userId: number, deviceId: string, data: any) {
   try {
     switch (action) {
       case 'CREATE':
         const [newReport] = await db.insert(dailyReports).values({
           userId,
           deviceId,
-          tanggal: new Date(data.tanggal),
-          totalPenjualan: data.totalPenjualan,
-          totalPesanan: data.totalPesanan,
-          totalModal: data.totalModal,
-          keuntungan: data.keuntungan,
-          itemTerlaris: data.itemTerlaris,
-          createdAt: new Date(data.createdAt)
+          reportDate: new Date(data.reportDate),
+          totalSales: data.totalSales,
+          totalOrders: data.totalOrders,
+          totalCost: data.totalCost,
+          profit: data.profit,
+          bestSellingItem: data.bestSellingItem,
+          createdAt: new Date(data.createdAt),
+          lastModifiedBy: deviceId
         }).returning({ id: dailyReports.id });
-        console.log(`Created daily report for ${data.tanggal}, serverId ${newReport.id}`);
+        console.log(`Created daily report for ${data.reportDate}, serverId ${newReport.id}`);
         return { success: true, serverId: newReport.id };
 
       case 'UPDATE':
         // Find existing report by date and device
         const existingReport = await db.query.dailyReports.findFirst({
-          where: eq(dailyReports.tanggal, new Date(data.tanggal))
+          where: eq(dailyReports.reportDate, new Date(data.reportDate))
         });
 
         if (existingReport) {
           await db.update(dailyReports)
             .set({
-              totalPenjualan: data.totalPenjualan,
-              totalPesanan: data.totalPesanan,
-              totalModal: data.totalModal,
-              keuntungan: data.keuntungan,
-              itemTerlaris: data.itemTerlaris
+              totalSales: data.totalSales,
+              totalOrders: data.totalOrders,
+              totalCost: data.totalCost,
+              profit: data.profit,
+              bestSellingItem: data.bestSellingItem
             })
             .where(eq(dailyReports.id, existingReport.id));
-          console.log(`Updated daily report for ${data.tanggal}, serverId ${existingReport.id}`);
+          console.log(`Updated daily report for ${data.reportDate}, serverId ${existingReport.id}`);
           return { success: true, serverId: existingReport.id };
         } else {
           // Create if not exists
           const [newReport] = await db.insert(dailyReports).values({
             userId,
             deviceId,
-            tanggal: new Date(data.tanggal),
-            totalPenjualan: data.totalPenjualan,
-            totalPesanan: data.totalPesanan,
-            totalModal: data.totalModal,
-            keuntungan: data.keuntungan,
-            itemTerlaris: data.itemTerlaris,
-            createdAt: new Date(data.createdAt)
+            reportDate: new Date(data.reportDate),
+            totalSales: data.totalSales,
+            totalOrders: data.totalOrders,
+            totalCost: data.totalCost,
+            profit: data.profit,
+            bestSellingItem: data.bestSellingItem,
+            createdAt: new Date(data.createdAt),
+            lastModifiedBy: deviceId
           }).returning({ id: dailyReports.id });
-          console.log(`Created daily report for ${data.tanggal}, serverId ${newReport.id}`);
+          console.log(`Created daily report for ${data.reportDate}, serverId ${newReport.id}`);
           return { success: true, serverId: newReport.id };
         }
 
@@ -619,16 +629,63 @@ async function handleDailyReportSync(action: string, userId: number, deviceId: s
 }
 
 // Data routes
-app.get('/api/data/latest', async (c) => {
-  return c.json({
-    message: 'Data pull endpoint - to be implemented',
-    data: {
-      pesanan: [],
-      menu: [],
-      inventory: [],
-      dailyReports: []
-    }
-  });
+app.get('/api/data/latest', authMiddleware, async (c) => {
+  try {
+    const userId = c.get('userId') as number;
+
+    // Get latest data for the authenticated user
+    const latestOrders = await db.query.orders.findMany({
+      where: eq(orders.userId, userId),
+      orderBy: [desc(orders.updatedAt)],
+      limit: 50
+    });
+
+    const latestMenuItems = await db.query.menuItems.findMany({
+      where: eq(menuItems.userId, userId),
+      orderBy: [desc(menuItems.updatedAt)],
+      limit: 50
+    });
+
+    const latestInventoryItems = await db.query.inventoryItems.findMany({
+      where: eq(inventoryItems.userId, userId),
+      orderBy: [desc(inventoryItems.updatedAt)],
+      limit: 50
+    });
+
+    const latestDailyReports = await db.query.dailyReports.findMany({
+      where: eq(dailyReports.userId, userId),
+      orderBy: [desc(dailyReports.reportDate)],
+      limit: 30
+    });
+
+    // Convert decimal fields to numbers for frontend compatibility
+    const convertDecimalFields = (items: any[]) => {
+      return items.map(item => ({
+        ...item,
+        total: item.total ? Number(item.total) : 0,
+        price: item.price ? Number(item.price) : 0,
+        stock: item.stock ? Number(item.stock) : 0,
+        minimumStock: item.minimumStock ? Number(item.minimumStock) : 0,
+        purchasePrice: item.purchasePrice ? Number(item.purchasePrice) : 0,
+        totalSales: item.totalSales ? Number(item.totalSales) : 0,
+        totalCost: item.totalCost ? Number(item.totalCost) : 0,
+        profit: item.profit ? Number(item.profit) : 0,
+      }));
+    };
+
+    return c.json({
+      success: true,
+      data: {
+        orders: convertDecimalFields(latestOrders),
+        menuItems: convertDecimalFields(latestMenuItems),
+        inventoryItems: convertDecimalFields(latestInventoryItems),
+        dailyReports: convertDecimalFields(latestDailyReports)
+      }
+    });
+  } catch (error) {
+    console.error('Data pull endpoint error:', error);
+    return c.json({ error: 'Failed to fetch latest data' }, 500);
+  }
 });
 
 app.get('/api/data/sync-status', async (c) => {

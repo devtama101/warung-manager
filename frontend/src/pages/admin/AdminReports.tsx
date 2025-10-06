@@ -9,16 +9,16 @@ import { subDays, startOfDay, endOfDay, format } from 'date-fns';
 
 interface DaySalesData {
   date: string;
-  pesanan: number;
-  pendapatan: number;
-  keuntungan: number;
+  orders: number;
+  revenue: number;
+  profit: number;
 }
 
 interface MenuPopularity {
-  menuNama: string;
-  jumlahTerjual: number;
-  totalPendapatan: number;
-  totalKeuntungan: number;
+  menuName: string;
+  quantitySold: number;
+  totalRevenue: number;
+  totalProfit: number;
 }
 
 export function AdminReports() {
@@ -34,6 +34,16 @@ export function AdminReports() {
   const [menuPopularity, setMenuPopularity] = useState<MenuPopularity[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const calculateOrderProfit = (orders: any[], menuProfitMap: Map<string, number>) => {
+    return orders.reduce((totalProfit, order) => {
+      const orderProfit = order.items.reduce((orderTotal: number, item: any) => {
+        const profitPerItem = menuProfitMap.get(item.menuName) || 0;
+        return orderTotal + (profitPerItem * item.quantity);
+      }, 0);
+      return totalProfit + orderProfit;
+    }, 0);
+  };
+
   useEffect(() => {
     loadReports();
   }, []);
@@ -46,9 +56,13 @@ export function AdminReports() {
       const todayEnd = endOfDay(now);
       const weekAgo = startOfDay(subDays(now, 6));
 
+      // Get all menu items for profit calculation
+      const allMenu = await db.menuItems.toArray();
+      const menuProfitMap: Map<string, number> = new Map(allMenu.map(m => [m.name, m.price - m.costPrice]));
+
       // Get today's orders
-      const todayOrdersList = await db.pesanan
-        .where('tanggal')
+      const todayOrdersList = await db.orders
+        .where('orderDate')
         .between(todayStart, todayEnd, true, true)
         .and(p => p.status === 'completed')
         .toArray();
@@ -56,13 +70,14 @@ export function AdminReports() {
       setTodayOrders(todayOrdersList.length);
 
       const todayRev = todayOrdersList.reduce((sum, order) => sum + order.total, 0);
-      const todayPrf = todayOrdersList.reduce((sum, order) => sum + order.keuntungan, 0);
+      // Calculate profit for today's orders
+      const todayPrf = calculateOrderProfit(todayOrdersList, menuProfitMap);
       setTodayRevenue(todayRev);
       setTodayProfit(todayPrf);
 
       // Get last 7 days orders
-      const weekOrdersList = await db.pesanan
-        .where('tanggal')
+      const weekOrdersList = await db.orders
+        .where('orderDate')
         .between(weekAgo, todayEnd, true, true)
         .and(p => p.status === 'completed')
         .toArray();
@@ -70,7 +85,7 @@ export function AdminReports() {
       setWeeklyOrders(weekOrdersList.length);
 
       const weekRev = weekOrdersList.reduce((sum, order) => sum + order.total, 0);
-      const weekPrf = weekOrdersList.reduce((sum, order) => sum + order.keuntungan, 0);
+      const weekPrf = calculateOrderProfit(weekOrdersList, menuProfitMap);
       setWeeklyRevenue(weekRev);
       setWeeklyProfit(weekPrf);
       setAvgOrderValue(weekOrdersList.length > 0 ? weekRev / weekOrdersList.length : 0);
@@ -83,17 +98,17 @@ export function AdminReports() {
         const dayEnd = endOfDay(day);
 
         const dayOrders = weekOrdersList.filter(
-          order => order.tanggal >= dayStart && order.tanggal <= dayEnd
+          order => order.orderDate >= dayStart && order.orderDate <= dayEnd
         );
 
         const dayRevenue = dayOrders.reduce((sum, order) => sum + order.total, 0);
-        const dayProfit = dayOrders.reduce((sum, order) => sum + order.keuntungan, 0);
+        const dayProfit = calculateOrderProfit(dayOrders, menuProfitMap);
 
         trend.push({
           date: format(day, 'dd MMM'),
-          pesanan: dayOrders.length,
-          pendapatan: dayRevenue,
-          keuntungan: dayProfit
+          orders: dayOrders.length,
+          revenue: dayRevenue,
+          profit: dayProfit
         });
       }
       setTrendData(trend);
@@ -101,19 +116,15 @@ export function AdminReports() {
       // Calculate menu popularity with revenue and profit
       const menuMap = new Map<string, { qty: number; revenue: number; profit: number }>();
 
-      // Get all menu items to calculate profit
-      const allMenu = await db.menu.toArray();
-      const menuProfitMap = new Map(allMenu.map(m => [m.nama, m.harga - m.hargaModal]));
-
       weekOrdersList.forEach(order => {
         order.items.forEach(item => {
-          const current = menuMap.get(item.menuNama) || { qty: 0, revenue: 0, profit: 0 };
-          const itemRevenue = item.harga * item.qty;
-          const profitPerItem = menuProfitMap.get(item.menuNama) || 0;
-          const itemProfit = profitPerItem * item.qty;
+          const current = menuMap.get(item.menuName) || { qty: 0, revenue: 0, profit: 0 };
+          const itemRevenue = item.price * item.quantity;
+          const profitPerItem = menuProfitMap.get(item.menuName) || 0;
+          const itemProfit = profitPerItem * item.quantity;
 
-          menuMap.set(item.menuNama, {
-            qty: current.qty + item.qty,
+          menuMap.set(item.menuName, {
+            qty: current.qty + item.quantity,
             revenue: current.revenue + itemRevenue,
             profit: current.profit + itemProfit
           });
@@ -121,16 +132,16 @@ export function AdminReports() {
       });
 
       const menuPopArray: MenuPopularity[] = Array.from(menuMap.entries())
-        .map(([menuNama, data]) => ({
-          menuNama,
-          jumlahTerjual: data.qty,
-          totalPendapatan: data.revenue,
-          totalKeuntungan: data.profit
+        .map(([menuName, data]) => ({
+          menuName,
+          quantitySold: data.qty,
+          totalRevenue: data.revenue,
+          totalProfit: data.profit
         }))
-        .sort((a, b) => b.totalPendapatan - a.totalPendapatan);
+        .sort((a, b) => b.totalRevenue - a.totalRevenue);
 
       setMenuPopularity(menuPopArray.slice(0, 10));
-      setTopSellingItem(menuPopArray[0]?.menuNama || '-');
+      setTopSellingItem(menuPopArray[0]?.menuName || '-');
 
     } finally {
       setLoading(false);
@@ -160,7 +171,7 @@ export function AdminReports() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">
-                  Pesanan Hari Ini
+                  Order Hari Ini
                 </CardTitle>
                 <ShoppingBag className="h-4 w-4 text-green-600" />
               </CardHeader>
@@ -208,7 +219,7 @@ export function AdminReports() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">
-                  Pesanan 7 Hari
+                  Order 7 Hari
                 </CardTitle>
                 <Package className="h-4 w-4 text-gray-600" />
               </CardHeader>
@@ -253,7 +264,7 @@ export function AdminReports() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">
-                  Rata-rata per Pesanan
+                  Rata-rata per Order
                 </CardTitle>
                 <Clock className="h-4 w-4 text-green-600" />
               </CardHeader>
@@ -281,14 +292,14 @@ export function AdminReports() {
                   <Legend />
                   <Line
                     type="monotone"
-                    dataKey="pendapatan"
+                    dataKey="revenue"
                     stroke="#3b82f6"
                     strokeWidth={2}
                     name="Pendapatan"
                   />
                   <Line
                     type="monotone"
-                    dataKey="keuntungan"
+                    dataKey="profit"
                     stroke="#9333ea"
                     strokeWidth={2}
                     name="Keuntungan"
@@ -301,7 +312,7 @@ export function AdminReports() {
           {/* Orders Trend Chart */}
           <Card>
             <CardHeader>
-              <CardTitle>Jumlah Pesanan 7 Hari Terakhir</CardTitle>
+              <CardTitle>Jumlah Order 7 Hari Terakhir</CardTitle>
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={300}>
@@ -311,7 +322,7 @@ export function AdminReports() {
                   <YAxis />
                   <Tooltip />
                   <Legend />
-                  <Bar dataKey="pesanan" fill="#10b981" name="Jumlah Pesanan" />
+                  <Bar dataKey="orders" fill="#10b981" name="Jumlah Order" />
                 </BarChart>
               </ResponsiveContainer>
             </CardContent>
@@ -340,12 +351,12 @@ export function AdminReports() {
                     </thead>
                     <tbody>
                       {menuPopularity.map((item, index) => {
-                        const margin = item.totalPendapatan > 0
-                          ? (item.totalKeuntungan / item.totalPendapatan) * 100
+                        const margin = item.totalRevenue > 0
+                          ? (item.totalProfit / item.totalRevenue) * 100
                           : 0;
 
                         return (
-                          <tr key={item.menuNama} className="border-b last:border-b-0">
+                          <tr key={item.menuName} className="border-b last:border-b-0">
                             <td className="py-3 px-4">
                               <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-white ${
                                 index === 0 ? 'bg-yellow-500' :
@@ -356,17 +367,17 @@ export function AdminReports() {
                                 {index + 1}
                               </div>
                             </td>
-                            <td className="py-3 px-4 font-medium">{item.menuNama}</td>
+                            <td className="py-3 px-4 font-medium">{item.menuName}</td>
                             <td className="py-3 px-4 text-right">
                               <span className="font-bold text-green-600">
-                                {formatNumber(item.jumlahTerjual)} porsi
+                                {formatNumber(item.quantitySold)} porsi
                               </span>
                             </td>
                             <td className="py-3 px-4 text-right font-bold text-blue-600">
-                              {formatCurrency(item.totalPendapatan)}
+                              {formatCurrency(item.totalRevenue)}
                             </td>
                             <td className="py-3 px-4 text-right font-bold text-purple-600">
-                              {formatCurrency(item.totalKeuntungan)}
+                              {formatCurrency(item.totalProfit)}
                             </td>
                             <td className="py-3 px-4 text-right">
                               <span className={`font-semibold ${

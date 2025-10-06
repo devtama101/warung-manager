@@ -45,8 +45,8 @@ export function WarungRegister() {
       const success = await registerUser({
         email: data.email,
         password: data.password,
-        warungNama: data.warungNama,
-        warungAlamat: data.warungAlamat
+        businessName: data.warungNama,
+        businessAddress: data.warungAlamat
       });
 
       if (success) {

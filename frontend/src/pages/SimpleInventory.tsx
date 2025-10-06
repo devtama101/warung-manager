@@ -4,21 +4,21 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { db, Inventory } from '@/db/schema';
+import { db, InventoryItem } from '@/db/schema';
 
 export function SimpleInventory() {
-  const [inventoryItems, setInventoryItems] = useState<Inventory[]>([]);
+  const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [adjustments, setAdjustments] = useState<Record<number, string>>({});
 
   useEffect(() => {
-    loadInventory();
+    loadInventoryItem();
   }, []);
 
-  const loadInventory = async () => {
+  const loadInventoryItem = async () => {
     setLoading(true);
     try {
-      const items = await db.inventory.orderBy('nama').toArray();
+      const items = await db.inventoryItems.orderBy('name').toArray();
       setInventoryItems(items);
     } finally {
       setLoading(false);
@@ -29,7 +29,7 @@ export function SimpleInventory() {
     setAdjustments({ ...adjustments, [id]: value });
   };
 
-  const addStock = async (item: Inventory) => {
+  const addStock = async (item: InventoryItem) => {
     const adjustment = parseFloat(adjustments[item.id!] || '0');
     if (adjustment <= 0 || isNaN(adjustment)) {
       alert('Masukkan jumlah yang valid untuk menambah stok');
@@ -37,37 +37,37 @@ export function SimpleInventory() {
     }
 
     try {
-      await db.inventory.update(item.id!, {
-        stok: item.stok + adjustment,
+      await db.inventoryItems.update(item.id!, {
+        stock: item.stock + adjustment,
         updatedAt: new Date()
       });
       setAdjustments({ ...adjustments, [item.id!]: '' });
-      await loadInventory();
+      await loadInventoryItem();
     } catch (error) {
       console.error('Failed to add stock:', error);
       alert('Gagal menambah stok');
     }
   };
 
-  const subtractStock = async (item: Inventory) => {
+  const subtractStock = async (item: InventoryItem) => {
     const adjustment = parseFloat(adjustments[item.id!] || '0');
     if (adjustment <= 0 || isNaN(adjustment)) {
       alert('Masukkan jumlah yang valid untuk mengurangi stok');
       return;
     }
 
-    if (item.stok - adjustment < 0) {
+    if (item.stock - adjustment < 0) {
       alert('Stok tidak boleh negatif');
       return;
     }
 
     try {
-      await db.inventory.update(item.id!, {
-        stok: item.stok - adjustment,
+      await db.inventoryItems.update(item.id!, {
+        stock: item.stock - adjustment,
         updatedAt: new Date()
       });
       setAdjustments({ ...adjustments, [item.id!]: '' });
-      await loadInventory();
+      await loadInventoryItem();
     } catch (error) {
       console.error('Failed to subtract stock:', error);
       alert('Gagal mengurangi stok');
@@ -75,16 +75,16 @@ export function SimpleInventory() {
   };
 
   const getLowStockItems = () => {
-    return inventoryItems.filter(item => item.stok <= item.stokMinimum);
+    return inventoryItems.filter(item => item.stock <= item.minimumStock);
   };
 
-  const groupByCategory = (items: Inventory[]) => {
-    const grouped = new Map<string, Inventory[]>();
+  const groupByCategory = (items: InventoryItem[]) => {
+    const grouped = new Map<string, InventoryItem[]>();
     items.forEach(item => {
-      const category = item.kategori;
+      const category = item.category;
       const categoryLabel =
-        category === 'bahan_baku' ? 'Bahan Baku' :
-        category === 'kemasan' ? 'Kemasan' : 'Lainnya';
+        category === 'raw_material' ? 'Bahan Baku' :
+        category === 'packaging' ? 'Kemasan' : 'Lainnya';
 
       if (!grouped.has(categoryLabel)) {
         grouped.set(categoryLabel, []);
@@ -101,10 +101,10 @@ export function SimpleInventory() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Inventory Bahan Baku</h1>
+          <h1 className="text-3xl font-bold text-gray-900">InventoryItem Bahan Baku</h1>
           <p className="text-gray-600 mt-1">Kelola stok bahan baku (tambah/kurang)</p>
         </div>
-        <Button onClick={loadInventory}>
+        <Button onClick={loadInventoryItem}>
           Muat Ulang
         </Button>
       </div>
@@ -138,9 +138,9 @@ export function SimpleInventory() {
             <div className="space-y-2">
               {lowStockItems.map(item => (
                 <div key={item.id} className="flex items-center justify-between">
-                  <span className="font-medium text-yellow-900">{item.nama}</span>
+                  <span className="font-medium text-yellow-900">{item.name}</span>
                   <span className="text-sm text-yellow-700">
-                    Sisa: {item.stok} {item.unit} (Min: {item.stokMinimum} {item.unit})
+                    Sisa: {item.stock} {item.unit} (Min: {item.minimumStock} {item.unit})
                   </span>
                 </div>
               ))}
@@ -171,7 +171,7 @@ export function SimpleInventory() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {items.map((item) => {
-                  const isLowStock = item.stok <= item.stokMinimum;
+                  const isLowStock = item.stock <= item.minimumStock;
 
                   return (
                     <Card
@@ -194,7 +194,7 @@ export function SimpleInventory() {
                         <div className="flex justify-between items-start mb-4">
                           <div className="flex-1 min-w-0">
                             <h3 className="text-lg font-semibold group-hover/card:text-blue-600 transition-colors duration-200">
-                              {item.nama}
+                              {item.name}
                             </h3>
                             {isLowStock && (
                               <Badge className="bg-yellow-500 text-white mt-2">
@@ -209,13 +209,13 @@ export function SimpleInventory() {
                           <div className="flex justify-between items-center">
                             <span className="text-sm text-gray-600">Stok:</span>
                             <span className="font-bold text-lg text-blue-600">
-                              {item.stok} {item.unit}
+                              {item.stock} {item.unit}
                             </span>
                           </div>
                           <div className="flex justify-between items-center">
                             <span className="text-sm text-gray-600">Min:</span>
                             <span className="text-sm font-medium">
-                              {item.stokMinimum} {item.unit}
+                              {item.minimumStock} {item.unit}
                             </span>
                           </div>
                           {item.supplier && (

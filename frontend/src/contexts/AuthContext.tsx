@@ -2,11 +2,11 @@ import { createContext, useContext, useState, useEffect, ReactNode } from 'react
 import axios from 'axios';
 import { getDeviceId } from '@/db/schema';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3002';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 interface AuthContextType {
   isAuthenticated: boolean;
-  user: { email: string; name: string; warungNama?: string } | null;
+  user: { email: string; name: string; businessName?: string; id?: number } | null;
   token: string | null;
   login: (email: string, password: string) => Promise<boolean>;
   logout: () => void;
@@ -17,7 +17,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [user, setUser] = useState<{ email: string; name: string; warungNama?: string } | null>(null);
+  const [user, setUser] = useState<{ email: string; name: string; businessName?: string; id?: number } | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -62,8 +62,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         const userData = {
           email: user.email,
-          name: user.warungNama || 'Admin',
-          warungNama: user.warungNama
+          name: user.businessName || 'Admin',
+          businessName: user.businessName,
+          id: user.id
         };
 
         setUser(userData);

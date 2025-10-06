@@ -61,7 +61,7 @@ export function Reports() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {formatCurrency(todayReport?.totalPenjualan || 0)}
+                  {formatCurrency(todayReport?.totalSales || 0)}
                 </div>
                 <p className="text-xs text-gray-600 mt-1">hari ini</p>
               </CardContent>
@@ -76,7 +76,7 @@ export function Reports() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-green-600">
-                  {formatCurrency(todayReport?.keuntungan || 0)}
+                  {formatCurrency(todayReport?.profit || 0)}
                 </div>
                 <p className="text-xs text-gray-600 mt-1">laba bersih</p>
               </CardContent>
@@ -85,13 +85,13 @@ export function Reports() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">
-                  Jumlah Pesanan
+                  Jumlah Order
                 </CardTitle>
                 <ShoppingBag className="h-4 w-4 text-gray-600" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {formatNumber(todayReport?.totalPesanan || 0)}
+                  {formatNumber(todayReport?.totalOrders || 0)}
                 </div>
                 <p className="text-xs text-gray-600 mt-1">pesanan selesai</p>
               </CardContent>
@@ -106,7 +106,7 @@ export function Reports() {
               </CardHeader>
               <CardContent>
                 <div className="text-lg font-bold truncate">
-                  {todayReport?.itemTerlaris || 'N/A'}
+                  {todayReport?.bestSellingItem || 'N/A'}
                 </div>
                 <p className="text-xs text-gray-600 mt-1">menu favorit</p>
               </CardContent>
@@ -169,7 +169,7 @@ export function Reports() {
 
             <Card>
               <CardHeader>
-                <CardTitle>Jumlah Pesanan 7 Hari</CardTitle>
+                <CardTitle>Jumlah Order 7 Hari</CardTitle>
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={300}>
@@ -179,7 +179,7 @@ export function Reports() {
                     <YAxis />
                     <Tooltip />
                     <Legend />
-                    <Bar dataKey="orders" fill="#3b82f6" name="Pesanan" />
+                    <Bar dataKey="orders" fill="#3b82f6" name="Order" />
                   </BarChart>
                 </ResponsiveContainer>
               </CardContent>
@@ -193,25 +193,25 @@ export function Reports() {
                 <div className="space-y-4">
                   <div className="flex justify-between items-center py-2 border-b">
                     <span className="text-gray-600">Total Pendapatan</span>
-                    <span className="font-bold">{formatCurrency(todayReport?.totalPenjualan || 0)}</span>
+                    <span className="font-bold">{formatCurrency(todayReport?.totalSales || 0)}</span>
                   </div>
                   <div className="flex justify-between items-center py-2 border-b">
                     <span className="text-gray-600">Total Modal (COGS)</span>
                     <span className="font-medium text-red-600">
-                      {formatCurrency(todayReport?.totalModal || 0)}
+                      {formatCurrency(todayReport?.totalCost || 0)}
                     </span>
                   </div>
                   <div className="flex justify-between items-center py-2 border-b">
                     <span className="text-gray-600">Laba Bersih</span>
                     <span className="font-bold text-green-600">
-                      {formatCurrency(todayReport?.keuntungan || 0)}
+                      {formatCurrency(todayReport?.profit || 0)}
                     </span>
                   </div>
                   <div className="flex justify-between items-center py-2">
                     <span className="text-gray-600">Margin Keuntungan</span>
                     <span className="font-medium">
-                      {todayReport?.totalPenjualan
-                        ? ((todayReport.keuntungan / todayReport.totalPenjualan) * 100).toFixed(1)
+                      {todayReport?.totalSales
+                        ? ((todayReport.profit / todayReport.totalSales) * 100).toFixed(1)
                         : '0'}%
                     </span>
                   </div>
@@ -236,7 +236,7 @@ export function Reports() {
                       className="flex items-center justify-between py-3 border-b last:border-b-0"
                     >
                       <div className="flex-1">
-                        <p className="font-medium text-gray-900">{item.menuNama}</p>
+                        <p className="font-medium text-gray-900">{item.menuName}</p>
                         <p className="text-sm text-gray-600">
                           {formatNumber(item.totalQty)} terjual • {formatCurrency(item.avgPrice)}/item
                         </p>
@@ -246,8 +246,8 @@ export function Reports() {
                           {formatCurrency(item.totalRevenue)}
                         </p>
                         <p className="text-xs text-gray-600">
-                          {todayReport?.totalPenjualan
-                            ? ((item.totalRevenue / todayReport.totalPenjualan) * 100).toFixed(1)
+                          {todayReport?.totalSales
+                            ? ((item.totalRevenue / todayReport.totalSales) * 100).toFixed(1)
                             : '0'}%
                         </p>
                       </div>

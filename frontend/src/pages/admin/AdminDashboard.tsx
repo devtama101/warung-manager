@@ -7,10 +7,10 @@ import { db } from '@/db/schema';
 import { subDays, startOfDay, endOfDay, format } from 'date-fns';
 
 interface MenuPopularity {
-  menuNama: string;
-  jumlahTerjual: number;
-  totalPendapatan: number;
-  totalKeuntungan: number;
+  menuName: string;
+  quantitySold: number;
+  totalRevenue: number;
+  totalProfit: number;
 }
 
 export function AdminDashboard() {
@@ -26,7 +26,7 @@ export function AdminDashboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    document.title = 'Laporan Lengkap - Warung POS';
+    document.title = 'Laporan Lengkap - Warung Manager';
     loadReports();
   }, []);
 
@@ -39,40 +39,40 @@ export function AdminDashboard() {
       const weekAgo = startOfDay(subDays(now, 6));
 
       // Get all menu items for profit calculation
-      const allMenu = await db.menu.toArray();
-      const menuProfitMap = new Map(allMenu.map(m => [m.nama, m.harga - m.hargaModal]));
+      const allMenu = await db.menuItems.toArray();
+      const menuProfitMap = new Map(allMenu.map(m => [m.name, m.price - m.costPrice]));
 
       // Calculate profit for an array of orders
       const calculateOrderProfit = (orders: any[]) => {
         return orders.reduce((totalProfit, order) => {
           const orderProfit = order.items.reduce((orderTotal: number, item: any) => {
-            const profitPerItem = menuProfitMap.get(item.menuNama) || 0;
-            return orderTotal + (profitPerItem * item.qty);
+            const profitPerItem = menuProfitMap.get(item.menuName) || 0;
+            return orderTotal + (profitPerItem * item.quantity);
           }, 0);
           return totalProfit + orderProfit;
         }, 0);
       };
 
       // Get today's orders - try multiple approaches
-      let todayOrdersList = await db.pesanan
-        .where('tanggal')
+      let todayOrdersList = await db.orders
+        .where('orderDate')
         .between(todayStart, todayEnd, true, true)
         .and(p => p.status === 'completed')
         .toArray();
 
       // If no orders found with 'completed', try other common statuses
       if (todayOrdersList.length === 0) {
-        todayOrdersList = await db.pesanan
-          .where('tanggal')
+        todayOrdersList = await db.orders
+          .where('orderDate')
           .between(todayStart, todayEnd, true, true)
-          .and(p => p.status === 'selesai')
+          .and(p => p.status === 'completed')
           .toArray();
       }
 
       // Still no orders? Try without status filter
       if (todayOrdersList.length === 0) {
-        todayOrdersList = await db.pesanan
-          .where('tanggal')
+        todayOrdersList = await db.orders
+          .where('orderDate')
           .between(todayStart, todayEnd, true, true)
           .toArray();
       }
@@ -85,25 +85,25 @@ export function AdminDashboard() {
       setTodayProfit(todayPrf);
 
       // Get last 7 days orders - try multiple approaches
-      let weekOrdersList = await db.pesanan
-        .where('tanggal')
+      let weekOrdersList = await db.orders
+        .where('orderDate')
         .between(weekAgo, todayEnd, true, true)
         .and(p => p.status === 'completed')
         .toArray();
 
       // If no orders found with 'completed', try other common statuses
       if (weekOrdersList.length === 0) {
-        weekOrdersList = await db.pesanan
-          .where('tanggal')
+        weekOrdersList = await db.orders
+          .where('orderDate')
           .between(weekAgo, todayEnd, true, true)
-          .and(p => p.status === 'selesai')
+          .and(p => p.status === 'completed')
           .toArray();
       }
 
       // Still no orders? Try without status filter
       if (weekOrdersList.length === 0) {
-        weekOrdersList = await db.pesanan
-          .where('tanggal')
+        weekOrdersList = await db.orders
+          .where('orderDate')
           .between(weekAgo, todayEnd, true, true)
           .toArray();
       }
@@ -121,13 +121,13 @@ export function AdminDashboard() {
 
       weekOrdersList.forEach(order => {
         order.items.forEach(item => {
-          const current = menuMap.get(item.menuNama) || { qty: 0, revenue: 0, profit: 0 };
-          const itemRevenue = item.harga * item.qty;
-          const profitPerItem = menuProfitMap.get(item.menuNama) || 0;
-          const itemProfit = profitPerItem * item.qty;
+          const current = menuMap.get(item.menuName) || { qty: 0, revenue: 0, profit: 0 };
+          const itemRevenue = item.price * item.quantity;
+          const profitPerItem = menuProfitMap.get(item.menuName) || 0;
+          const itemProfit = profitPerItem * item.quantity;
 
-          menuMap.set(item.menuNama, {
-            qty: current.qty + item.qty,
+          menuMap.set(item.menuName, {
+            qty: current.qty + item.quantity,
             revenue: current.revenue + itemRevenue,
             profit: current.profit + itemProfit
           });
@@ -135,16 +135,16 @@ export function AdminDashboard() {
       });
 
       const menuPopArray: MenuPopularity[] = Array.from(menuMap.entries())
-        .map(([menuNama, data]) => ({
-          menuNama,
-          jumlahTerjual: data.qty,
-          totalPendapatan: data.revenue,
-          totalKeuntungan: data.profit
+        .map(([menuName, data]) => ({
+          menuName,
+          quantitySold: data.qty,
+          totalRevenue: data.revenue,
+          totalProfit: data.profit
         }))
-        .sort((a, b) => b.totalPendapatan - a.totalPendapatan);
+        .sort((a, b) => b.totalRevenue - a.totalRevenue);
 
       setMenuPopularity(menuPopArray.slice(0, 10));
-      setTopSellingItem(menuPopArray[0]?.menuNama || '-');
+      setTopSellingItem(menuPopArray[0]?.menuName || '-');
 
     } finally {
       setLoading(false);
@@ -175,7 +175,7 @@ export function AdminDashboard() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-xs sm:text-sm font-medium">
-                  Pesanan Hari Ini
+                  Order Hari Ini
                 </CardTitle>
                 <ShoppingBag className="h-4 w-4 text-green-600 flex-shrink-0" />
               </CardHeader>
@@ -223,7 +223,7 @@ export function AdminDashboard() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-xs sm:text-sm font-medium">
-                  Pesanan 7 Hari
+                  Order 7 Hari
                 </CardTitle>
                 <Package className="h-4 w-4 text-gray-600 flex-shrink-0" />
               </CardHeader>
@@ -268,7 +268,7 @@ export function AdminDashboard() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-xs sm:text-sm font-medium">
-                  Rata-rata per Pesanan
+                  Rata-rata per Order
                 </CardTitle>
                 <Clock className="h-4 w-4 text-green-600 flex-shrink-0" />
               </CardHeader>
@@ -325,12 +325,12 @@ export function AdminDashboard() {
                       </thead>
                       <tbody>
                         {menuPopularity.map((item, index) => {
-                          const margin = item.totalPendapatan > 0
-                            ? (item.totalKeuntungan / item.totalPendapatan) * 100
+                          const margin = item.totalRevenue > 0
+                            ? (item.totalProfit / item.totalRevenue) * 100
                             : 0;
 
                           return (
-                            <tr key={item.menuNama} className="border-b last:border-b-0">
+                            <tr key={item.menuName} className="border-b last:border-b-0">
                               <td className="py-2 px-2 sm:py-3 sm:px-4">
                                 <div className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center font-bold text-white text-xs sm:text-sm ${
                                   index === 0 ? 'bg-yellow-500' :
@@ -341,17 +341,17 @@ export function AdminDashboard() {
                                   {index + 1}
                                 </div>
                               </td>
-                              <td className="py-2 px-2 sm:py-3 sm:px-4 font-medium text-xs sm:text-sm">{item.menuNama}</td>
+                              <td className="py-2 px-2 sm:py-3 sm:px-4 font-medium text-xs sm:text-sm">{item.menuName}</td>
                               <td className="py-2 px-2 sm:py-3 sm:px-4 text-right">
                                 <span className="font-bold text-green-600 text-xs sm:text-sm">
-                                  {formatNumber(item.jumlahTerjual)} porsi
+                                  {formatNumber(item.quantitySold)} porsi
                                 </span>
                               </td>
                               <td className="py-2 px-2 sm:py-3 sm:px-4 text-right font-bold text-blue-600 text-xs sm:text-sm">
-                                {formatCurrency(item.totalPendapatan)}
+                                {formatCurrency(item.totalRevenue)}
                               </td>
                               <td className="py-2 px-2 sm:py-3 sm:px-4 text-right font-bold text-purple-600 text-xs sm:text-sm">
-                                {formatCurrency(item.totalKeuntungan)}
+                                {formatCurrency(item.totalProfit)}
                               </td>
                               <td className="py-2 px-2 sm:py-3 sm:px-4 text-right">
                                 <span className={`font-semibold text-xs sm:text-sm ${

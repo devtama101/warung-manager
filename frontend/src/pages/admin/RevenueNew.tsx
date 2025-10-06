@@ -12,9 +12,9 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 interface DaySalesData {
   date: string;
-  pesanan: number;
-  pendapatan: number;
-  keuntungan: number;
+  orders: number;
+  revenue: number;
+  profit: number;
 }
 
 interface RevenueData {
@@ -30,7 +30,7 @@ interface RevenueData {
     avgOrderValue: number;
   }>;
   revenueByMenu: Array<{
-    menuNama: string;
+    menuName: string;
     totalRevenue: number;
     totalQty: number;
     avgPrice: number;
@@ -119,22 +119,22 @@ export function RevenueNew() {
       }
 
       // Get all menu items for profit calculation
-      const allMenu = await db.menu.toArray();
+      const allMenu = await db.menuItems.toArray();
       const menuProfitMap = new Map();
 
       // Calculate profit per menu with validation
       allMenu.forEach(menu => {
-        const harga = Number(menu.harga) || 0;
-        const hargaModal = Number(menu.hargaModal) || 0;
+        const harga = Number(menu.price) || 0;
+        const hargaModal = Number(menu.costPrice) || 0;
 
         // Ensure hargaModal is not greater than harga and both are valid numbers
         if (harga > 0 && hargaModal >= 0 && hargaModal <= harga) {
           const profitPerItem = harga - hargaModal;
-          menuProfitMap.set(menu.nama, profitPerItem);
-          console.log(`Menu: ${menu.nama}, Harga: ${harga}, Modal: ${hargaModal}, Profit/item: ${profitPerItem}`);
+          menuProfitMap.set(menu.name, profitPerItem);
+          console.log(`Menu: ${menu.name}, Harga: ${harga}, Modal: ${hargaModal}, Profit/item: ${profitPerItem}`);
         } else {
-          console.warn(`Invalid pricing for menu ${menu.nama}: Harga=${harga}, Modal=${hargaModal}`);
-          menuProfitMap.set(menu.nama, 0);
+          console.warn(`Invalid pricing for menu ${menu.name}: Harga=${harga}, Modal=${hargaModal}`);
+          menuProfitMap.set(menu.name, 0);
         }
       });
 
@@ -142,52 +142,52 @@ export function RevenueNew() {
       const calculateOrderProfit = (orders: any[]) => {
         return orders.reduce((totalProfit, order) => {
           const orderProfit = order.items.reduce((orderTotal: number, item: any) => {
-            const profitPerItem = menuProfitMap.get(item.menuNama) || 0;
-            return orderTotal + (profitPerItem * item.qty);
+            const profitPerItem = menuProfitMap.get(item.menuName) || 0;
+            return orderTotal + (profitPerItem * item.quantity);
           }, 0);
           return totalProfit + orderProfit;
         }, 0);
       };
 
       // Get orders based on time range - try multiple approaches
-      let ordersList = await db.pesanan
-        .where('tanggal')
+      let ordersList = await db.orders
+        .where('orderDate')
         .between(startDate, todayEnd, true, true)
         .and(p => p.status === 'completed')
         .toArray();
 
       // If no orders found with 'completed', try other common statuses
       if (ordersList.length === 0) {
-        ordersList = await db.pesanan
-          .where('tanggal')
+        ordersList = await db.orders
+          .where('orderDate')
           .between(startDate, todayEnd, true, true)
-          .and(p => p.status === 'selesai')
+          .and(p => p.status === 'completed')
           .toArray();
       }
 
       // Still no orders? Try without status filter
       if (ordersList.length === 0) {
-        ordersList = await db.pesanan
-          .where('tanggal')
+        ordersList = await db.orders
+          .where('orderDate')
           .between(startDate, todayEnd, true, true)
           .toArray();
       }
 
       // Initialize trend data structure
-      const trendMap = new Map<string, { pesanan: number; pendapatan: number; keuntungan: number }>();
+      const trendMap = new Map<string, { orders: number; revenue: number; profit: number }>();
 
       // Initialize all periods with zero values
       if (timeRange === 'today') {
         // Initialize hourly data for today
         for (let i = 0; i < 24; i++) {
           const hour = i.toString().padStart(2, '0') + ':00';
-          trendMap.set(hour, { pesanan: 0, pendapatan: 0, keuntungan: 0 });
+          trendMap.set(hour, { orders: 0, revenue: 0, profit: 0 });
         }
       } else if (timeRange === 'year') {
         // Initialize monthly data for year
         const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
         for (let i = 0; i <= now.getMonth(); i++) {
-          trendMap.set(months[i], { pesanan: 0, pendapatan: 0, keuntungan: 0 });
+          trendMap.set(months[i], { orders: 0, revenue: 0, profit: 0 });
         }
       } else {
         // Initialize daily data for other ranges
@@ -199,7 +199,7 @@ export function RevenueNew() {
             date = new Date(startDate.getTime() + i * 24 * 60 * 60 * 1000);
           }
           const dateKey = format(date, dateFormat);
-          trendMap.set(dateKey, { pesanan: 0, pendapatan: 0, keuntungan: 0 });
+          trendMap.set(dateKey, { orders: 0, revenue: 0, profit: 0 });
         }
       }
 
@@ -208,28 +208,28 @@ export function RevenueNew() {
         let periodKey: string;
 
         if (timeRange === 'today') {
-          periodKey = format(order.tanggal, 'HH') + ':00';
+          periodKey = format(order.orderDate, 'HH') + ':00';
         } else if (timeRange === 'year') {
-          periodKey = format(order.tanggal, 'MMM');
+          periodKey = format(order.orderDate, 'MMM');
         } else {
-          periodKey = format(order.tanggal, dateFormat);
+          periodKey = format(order.orderDate, dateFormat);
         }
 
-        const current = trendMap.get(periodKey) || { pesanan: 0, pendapatan: 0, keuntungan: 0 };
+        const current = trendMap.get(periodKey) || { orders: 0, revenue: 0, profit: 0 };
 
-        current.pesanan += 1;
-        current.pendapatan += order.total;
+        current.orders += 1;
+        current.revenue += order.total;
 
         // Calculate profit for this order
         const orderProfit = order.items.reduce((orderTotal: number, item: any) => {
-          const profitPerItem = menuProfitMap.get(item.menuNama) || 0;
-          const itemTotalProfit = profitPerItem * (Number(item.qty) || 0);
+          const profitPerItem = menuProfitMap.get(item.menuName) || 0;
+          const itemTotalProfit = profitPerItem * (Number(item.quantity) || 0);
 
           // Debug log for each item
           if (profitPerItem > 0) {
-            console.log(`Item: ${item.menuNama}, Qty: ${item.qty}, Profit/item: ${profitPerItem}, Total: ${itemTotalProfit}`);
-          } else if (profitPerItem === 0 && item.menuNama) {
-            console.warn(`Menu not found or zero profit: ${item.menuNama}`);
+            console.log(`Item: ${item.menuName}, Qty: ${item.quantity}, Profit/item: ${profitPerItem}, Total: ${itemTotalProfit}`);
+          } else if (profitPerItem === 0 && item.menuName) {
+            console.warn(`Menu not found or zero profit: ${item.menuName}`);
           }
 
           return orderTotal + itemTotalProfit;
@@ -241,7 +241,7 @@ export function RevenueNew() {
           console.warn(`Order profit (${orderProfit}) exceeds order revenue (${order.total}), capping at revenue`);
         }
 
-        current.keuntungan += validOrderProfit;
+        current.profit += validOrderProfit;
 
         trendMap.set(periodKey, current);
       });
@@ -249,23 +249,23 @@ export function RevenueNew() {
       const trendArray: DaySalesData[] = Array.from(trendMap.entries())
         .map(([date, data]) => {
           // Final validation: ensure profit doesn't exceed revenue
-          const validKeuntungan = Math.min(data.keuntungan, data.pendapatan);
+          const validProfit = Math.min(data.profit, data.revenue);
 
-          if (data.keuntungan > data.pendapatan) {
-            console.warn(`Period ${date}: Profit (${data.keuntungan}) exceeds Revenue (${data.pendapatan}), capping profit at revenue`);
+          if (data.profit > data.revenue) {
+            console.warn(`Period ${date}: Profit (${data.profit}) exceeds Revenue (${data.revenue}), capping profit at revenue`);
           }
 
           return {
             date,
-            pesanan: data.pesanan,
-            pendapatan: data.pendapatan,
-            keuntungan: validKeuntungan
+            orders: data.orders,
+            revenue: data.revenue,
+            profit: validProfit
           };
         });
 
       // Log final totals for debugging
-      const totalRevenue = trendArray.reduce((sum, day) => sum + day.pendapatan, 0);
-      const totalProfit = trendArray.reduce((sum, day) => sum + day.keuntungan, 0);
+      const totalRevenue = trendArray.reduce((sum, day) => sum + day.revenue, 0);
+      const totalProfit = trendArray.reduce((sum, day) => sum + day.profit, 0);
       console.log(`Final totals - Revenue: ${totalRevenue}, Profit: ${totalProfit}, Margin: ${totalRevenue > 0 ? (totalProfit/totalRevenue*100).toFixed(1) : 0}%`);
 
       setTrendData(trendArray);
@@ -298,17 +298,17 @@ export function RevenueNew() {
   const getOrderChartTitle = () => {
     switch (timeRange) {
       case 'today':
-        return 'Jumlah Pesanan Hari Ini (Per Jam)';
+        return 'Jumlah Order Hari Ini (Per Jam)';
       case '7days':
-        return 'Jumlah Pesanan 7 Hari Terakhir';
+        return 'Jumlah Order 7 Hari Terakhir';
       case 'month':
-        return 'Jumlah Pesanan Bulan Ini';
+        return 'Jumlah Order Bulan Ini';
       case '3months':
-        return 'Jumlah Pesanan 3 Bulan Terakhir';
+        return 'Jumlah Order 3 Bulan Terakhir';
       case 'year':
-        return 'Jumlah Pesanan Tahun Ini (Per Bulan)';
+        return 'Jumlah Order Tahun Ini (Per Bulan)';
       default:
-        return 'Jumlah Pesanan';
+        return 'Jumlah Order';
     }
   };
 
@@ -325,8 +325,8 @@ export function RevenueNew() {
 
   // Calculate total profit from trend data
   const getTotalProfit = () => {
-    const totalProfit = trendData.reduce((total, day) => total + day.keuntungan, 0);
-    const totalRevenue = trendData.reduce((total, day) => total + day.pendapatan, 0);
+    const totalProfit = trendData.reduce((total, day) => total + day.profit, 0);
+    const totalRevenue = trendData.reduce((total, day) => total + day.revenue, 0);
 
     // Ensure profit never exceeds revenue
     const validProfit = Math.min(totalProfit, totalRevenue);
@@ -340,7 +340,7 @@ export function RevenueNew() {
 
   // Calculate profit margin
   const getProfitMargin = () => {
-    const totalRevenue = trendData.reduce((total, day) => total + day.pendapatan, 0);
+    const totalRevenue = trendData.reduce((total, day) => total + day.revenue, 0);
     const totalProfit = getTotalProfit();
     if (totalRevenue === 0) return 0;
     return (totalProfit / totalRevenue) * 100;
@@ -348,8 +348,8 @@ export function RevenueNew() {
 
   // Calculate profit per menu
   const getMenuWithProfit = () => {
-    const allMenu = db.menu.toArray();
-    return data.revenueByMenu.map(item => {
+    const allMenu = db.menuItems.toArray();
+    return data?.revenueByMenu?.map(item => {
       const menuProfitMap = new Map();
       // This would need to be calculated from order data
       // For now, we'll estimate profit based on typical margins
@@ -464,7 +464,7 @@ export function RevenueNew() {
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Pesanan</CardTitle>
+                <CardTitle className="text-sm font-medium">Total Order</CardTitle>
                 <TrendingUp className="h-4 w-4 text-gray-600" />
               </CardHeader>
               <CardContent>
@@ -499,7 +499,7 @@ export function RevenueNew() {
                   <div className="text-2xl font-bold text-orange-600">
                     {data.totalOrders > 0 ? formatCurrency(getTotalProfit() / data.totalOrders) : formatCurrency(0)}
                   </div>
-                  <p className="text-sm text-gray-600 mt-1">Keuntungan per Pesanan</p>
+                  <p className="text-sm text-gray-600 mt-1">Keuntungan per Order</p>
                 </div>
               </div>
             </CardContent>
@@ -534,14 +534,14 @@ export function RevenueNew() {
                     <Legend wrapperStyle={{ fontSize: '12px' }} />
                     <Line
                       type="monotone"
-                      dataKey="pendapatan"
+                      dataKey="revenue"
                       stroke="#3b82f6"
                       strokeWidth={2}
                       name="Pendapatan"
                     />
                     <Line
                       type="monotone"
-                      dataKey="keuntungan"
+                      dataKey="profit"
                       stroke="#9333ea"
                       strokeWidth={2}
                       name="Keuntungan"
@@ -576,7 +576,7 @@ export function RevenueNew() {
                     <YAxis tick={{ fontSize: 10 }} />
                     <Tooltip contentStyle={{ fontSize: '12px' }} />
                     <Legend wrapperStyle={{ fontSize: '12px' }} />
-                    <Bar dataKey="pesanan" fill="#10b981" name="Jumlah Pesanan" />
+                    <Bar dataKey="orders" fill="#10b981" name="Jumlah Order" />
                   </BarChart>
                 </ResponsiveContainer>
               )}
@@ -624,11 +624,11 @@ export function RevenueNew() {
                     <Pie
                       data={data.revenueByMenu.slice(0, 8)}
                       dataKey="totalRevenue"
-                      nameKey="menuNama"
+                      nameKey="menuName"
                       cx="50%"
                       cy="50%"
                       outerRadius={100}
-                      label={(entry) => `${entry.menuNama} (${((entry.totalRevenue / data.totalRevenue) * 100).toFixed(0)}%)`}
+                      label={(entry) => `${entry.menuName} (${(((entry.totalRevenue as any) / (data.totalRevenue as any)) * 100).toFixed(0)}%)`}
                     >
                       {data.revenueByMenu.slice(0, 8).map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
@@ -670,7 +670,7 @@ export function RevenueNew() {
 
                         return (
                           <tr key={index} className="border-b last:border-b-0">
-                            <td className="py-3 px-4 font-medium">{item.menuNama}</td>
+                            <td className="py-3 px-4 font-medium">{item.menuName}</td>
                             <td className="py-3 px-4 text-right">{formatNumber(item.totalQty)}</td>
                             <td className="py-3 px-4 text-right">{formatCurrency(item.avgPrice)}</td>
                             <td className="py-3 px-4 text-right font-bold text-blue-600">
