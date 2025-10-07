@@ -67,7 +67,7 @@ function App() {
   return (
     <WarungAuthProvider>
       <AuthProvider>
-        <BrowserRouter>
+        <BrowserRouter basename={import.meta.env.PROD ? "/products/warung-manager" : "/"}>
           <Routes>
             {/* Landing Page Route (Public) */}
             <Route path="/" element={<LandingPage />} />
