@@ -10,13 +10,14 @@ interface WarungUser {
   name?: string;
   businessName: string;
   businessAddress?: string;
+  role?: 'admin' | 'employee';
 }
 
 interface WarungAuthContextType {
   isAuthenticated: boolean;
   user: WarungUser | null;
   token: string | null;
-  login: (email: string, password: string) => Promise<boolean>;
+  login: (email: string, password: string) => Promise<{ success: boolean; role?: string }>;
   register: (data: RegisterData) => Promise<boolean>;
   logout: () => void;
   loading: boolean;
@@ -74,15 +75,17 @@ export function WarungAuthProvider({ children }: { children: ReactNode }) {
       });
 
       if (response.data.success) {
-        const { user, token } = response.data.data;
+        const { user, token, role } = response.data.data;
 
-        setUser(user);
+        // Add role to user object
+        const userWithRole = { ...user, role };
+        setUser(userWithRole);
         setToken(token);
         setIsAuthenticated(true);
 
         // Save to localStorage
         localStorage.setItem('warungAuthToken', token);
-        localStorage.setItem('warungUser', JSON.stringify(user));
+        localStorage.setItem('warungUser', JSON.stringify(userWithRole));
 
         // Update settings with userId and token
         const { db } = await import('@/db/schema');
@@ -97,13 +100,13 @@ export function WarungAuthProvider({ children }: { children: ReactNode }) {
           });
         }
 
-        return true;
+        return { success: true, role };
       }
 
-      return false;
+      return { success: false };
     } catch (error) {
       console.error('Login error:', error);
-      return false;
+      return { success: false };
     }
   };
 

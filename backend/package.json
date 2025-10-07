@@ -9,7 +9,9 @@
     "build": "tsc",
     "start": "tsx dist/index.js",
     "db:generate": "drizzle-kit generate",
-    "db:push": "drizzle-kit push"
+    "db:push": "drizzle-kit push",
+    "db:migrate": "drizzle-kit push",
+    "db:seed": "tsx seed-users.js"
   },
   "keywords": [],
   "author": "",

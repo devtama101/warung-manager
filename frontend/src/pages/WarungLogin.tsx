@@ -35,10 +35,15 @@ export function WarungLogin() {
     setIsLoading(true);
 
     try {
-      const success = await login(data.email, data.password);
+      const result = await login(data.email, data.password);
 
-      if (success) {
-        navigate('/');
+      if (result.success) {
+        // Redirect based on user role
+        if (result.role === 'admin') {
+          navigate('/admin');
+        } else {
+          navigate('/dashboard');
+        }
       } else {
         setError('Invalid email or password');
       }

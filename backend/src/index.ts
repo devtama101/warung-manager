@@ -19,7 +19,7 @@ const app = new Hono();
 
 // Enable CORS with proper security
 const allowedOrigins = [
-  'http://localhost:3002',
+  'http://localhost:3001', // Backend API port
   'http://localhost:5173', // Vite dev server
   'http://localhost:3000',
   process.env.FRONTEND_URL

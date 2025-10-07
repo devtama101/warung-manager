@@ -73,6 +73,7 @@ function App() {
             <Route path="/" element={<LandingPage />} />
 
             {/* Warung Login/Register Routes (Public) */}
+            <Route path="/login" element={<WarungLogin />} />
             <Route path="/warung/login" element={<WarungLogin />} />
             <Route path="/warung/register" element={<WarungRegister />} />
 

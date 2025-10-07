@@ -34,8 +34,8 @@ export const users = pgTable('users', {
   email: text('email').notNull().unique(),
   password: text('password').notNull(), // Hashed
   role: roleEnum('role').notNull().default('admin'),
-  businessName: text('business_name').notNull(),
-  businessAddress: text('business_address'),
+  businessName: text('businessName').notNull(),
+  businessAddress: text('businessAddress'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull()
 });
@@ -70,11 +70,11 @@ export const orders = pgTable('orders', {
   userId: integer('user_id').references(() => users.id).notNull(),
   deviceId: text('device_id').references(() => devices.deviceId).notNull(),
   localId: integer('local_id'), // Original ID from client
-  tableNumber: text('table_number'),
+  tableNumber: text('tableNumber'),
   items: json('items').$type<OrderItem[]>().notNull(),
   total: decimal('total', { precision: 10, scale: 2 }).notNull(),
   status: statusEnum('status').notNull().default('pending'),
-  orderDate: timestamp('order_date').notNull(),
+  orderDate: timestamp('orderDate').notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
   version: integer('version').default(1).notNull(),
