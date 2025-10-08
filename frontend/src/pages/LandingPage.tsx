@@ -92,7 +92,7 @@ export default function LandingPage() {
             </div>
 
             <div className="flex items-center space-x-4">
-              <Link to="/warung/login">
+              <Link to="/admin/login">
                 <Button variant="outline" size="sm" className="border-amber-200/60 text-amber-700/80 hover:bg-amber-50/50 hover:text-amber-600/90">
                   Masuk
                 </Button>
@@ -137,7 +137,7 @@ export default function LandingPage() {
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </Button>
               </Link>
-              <Link to="/warung/login">
+              <Link to="/admin/login">
                 <Button variant="outline" size="lg" className="w-full sm:w-auto border border-amber-200/60 text-amber-700/80 hover:bg-amber-50/50 text-lg px-8 py-4">
                   Masuk Akun
                 </Button>
@@ -560,7 +560,7 @@ export default function LandingPage() {
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
             </Link>
-            <Link to="/warung/login">
+            <Link to="/admin/login">
               <Button size="lg" variant="outline" className="text-lg px-8 py-4 border-white/70 text-white/90 hover:bg-white/90 hover:text-amber-600/90 font-semibold">
                 👀 Lihat Demo
               </Button>
