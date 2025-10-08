@@ -19,17 +19,18 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: '20'
-        cache: 'npm'
 
     - name: Install dependencies (Backend)
       run: |
         cd backend
-        npm ci
+        rm -rf node_modules package-lock.json || true
+        npm install --no-optional
 
     - name: Install dependencies (Frontend)
       run: |
         cd frontend
-        npm ci
+        rm -rf node_modules package-lock.json || true
+        npm install --no-optional
 
     - name: Run backend tests (if available)
       run: |
@@ -133,7 +134,7 @@ jobs:
 
         # Install backend dependencies
         echo "📦 Installing backend dependencies..."
-        ssh $SERVER_USER@$SERVER_HOST "cd $DEPLOY_DIR/backend && npm ci --omit=dev"
+        ssh $SERVER_USER@$SERVER_HOST "cd $DEPLOY_DIR/backend && npm install --omit=dev --no-optional"
 
         # Run database migrations
         echo "🗄️ Running database migrations..."
