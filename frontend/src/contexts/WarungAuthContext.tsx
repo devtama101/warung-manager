@@ -62,7 +62,7 @@ export function WarungAuthProvider({ children }: { children: ReactNode }) {
     checkAuth();
   }, []);
 
-  const login = async (email: string, password: string): Promise<boolean> => {
+  const login = async (email: string, password: string): Promise<{ success: boolean; role?: string }> => {
     try {
       const deviceId = getDeviceId();
       const deviceName = `Device-${deviceId.slice(0, 8)}`;
