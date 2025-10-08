@@ -1,0 +1,17 @@
+{
+  "name": "warung-manager",
+  "version": "1.0.0",
+  "description": "Warung Management System - CI/CD Root Package",
+  "scripts": {
+    "install:all": "npm install --prefix backend && npm install --prefix frontend",
+    "build:all": "npm run build --prefix backend && npm run build --prefix frontend",
+    "test:all": "npm test --prefix backend && npm test --prefix frontend"
+  },
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
